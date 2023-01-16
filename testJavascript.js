@@ -16,6 +16,12 @@ const PLAYER_BODY_FRICTIONAIR = 0;
 const PLAYER_BODY_DENSITY = 0.5;
 const FLOOR_FRICTIONSTATIC = 5;
 
+// - - - ENCODED SOUNDS (merged in from FMP) - - -
+
+const audioRunning = "**AUDIO_RUNNING**";
+const audioSliding = "**AUDIO_SLIDING**";
+const audioJumping = "**AUDIO_JUMPING**";
+
 // - - - MULTI-DIMENSIONAL ARRAY UTILTY - - -
 //
 // ref: https://medium.com/fractions/multidimensional-arrays-in-javascript-be344f27df0e
@@ -316,17 +322,28 @@ function changePlayerMovement(playerIndex, newDirection) {
       players[playerIndex].direction = "slideleft";
       players[playerIndex].slideCount = PLAYER_SLIDE_NORMAL_FRAMECOUNT;
       players[playerIndex].frameNo = 6;
+      const sound_sliding = new Audio("data:audio/mp4;base64," + audioSliding);
+      sound_sliding.play();
       //
     } else if (players[playerIndex].direction == "slideleft") {
-      // do nothing
+      // sliding to stop so do nothing
+      //
+    } else if (
+      players[playerIndex].direction == "right" &&
+      players[playerIndex].frameNo != 5
+    ) {
+      // already moving right so do nothing
       //
     } else {
+      // begin moving right
       players[playerIndex].direction = "right";
       players[playerIndex].frameNo = 11;
       Matter.Body.setVelocity(players[playerIndex].spriteBody, {
         x: PLAYER_RUN_VELOCITY_X,
         y: 0,
       });
+      const sound_running = new Audio("data:audio/mp4;base64," + audioRunning);
+      sound_running.play();
     }
   }
   //
@@ -339,17 +356,28 @@ function changePlayerMovement(playerIndex, newDirection) {
       players[playerIndex].direction = "slideright";
       players[playerIndex].slideCount = PLAYER_SLIDE_NORMAL_FRAMECOUNT;
       players[playerIndex].frameNo = 16;
+      const sound_sliding = new Audio("data:audio/mp4;base64," + audioSliding);
+      sound_sliding.play();
       //
     } else if (players[playerIndex].direction == "slideright") {
-      // do nothing
+      // sliding to stop so do nothing
+      //
+    } else if (
+      players[playerIndex].direction == "left" &&
+      players[playerIndex].frameNo != 5
+    ) {
+      // already moving right so do nothing
       //
     } else {
+      // begin moving left
       players[playerIndex].direction = "left";
       players[playerIndex].frameNo = 1;
       Matter.Body.setVelocity(players[playerIndex].spriteBody, {
         x: 0 - PLAYER_RUN_VELOCITY_X,
         y: 0,
       });
+      const sound_running = new Audio("data:audio/mp4;base64," + audioRunning);
+      sound_running.play();
     }
   }
   //
@@ -358,6 +386,8 @@ function changePlayerMovement(playerIndex, newDirection) {
       x: players[playerIndex].spriteBody.velocity.x,
       y: 0 - PLAYER_JUMP_VELOCITY_Y,
     });
+    const sound_jumping = new Audio("data:audio/mp4;base64," + audioJumping);
+    sound_jumping.play();
   }
 }
 
