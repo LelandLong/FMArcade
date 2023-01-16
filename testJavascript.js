@@ -1,6 +1,21 @@
 // MarioBros
 //    v1.0
 
+// - - - PHYSICS VALUES - - -
+
+const WORLD_GRAVITY = 0.00005;
+const PLAYER_INIT_X = 38;
+const PLAYER_INIT_Y = 1;
+const PLAYER_RUN_VELOCITY_X = 0.25;
+const PLAYER_JUMP_VELOCITY_Y = 0.65;
+const PLAYER_SLIDE_NORMAL_FRAMECOUNT = 4;
+const PLAYER_SLIDE_ICE_FRAMECOUNT = 10;
+const PLAYER_BODY_RESTITUTION = 0;
+const PLAYER_BODY_FRICTION = 0;
+const PLAYER_BODY_FRICTIONAIR = 0;
+const PLAYER_BODY_DENSITY = 0.5;
+const FLOOR_FRICTIONSTATIC = 5;
+
 // - - - MULTI-DIMENSIONAL ARRAY UTILTY - - -
 //
 // ref: https://medium.com/fractions/multidimensional-arrays-in-javascript-be344f27df0e
@@ -23,7 +38,7 @@ function powerArray(length) {
 // Global vars
 var gameGlobals = {
   loopIndex: 0,
-  timerDuration: 100,
+  timerDuration: 70,
   levelIndex: 1,
   levelActive: true,
 };
@@ -55,17 +70,31 @@ var engine = Engine.create({
 });
 
 // change gravity
-engine.gravity.scale = 0.00005;
+engine.gravity.scale = WORLD_GRAVITY;
 
-// the static ground rectangle
-var ground = Bodies.rectangle(32, 80, 66, 10, { isStatic: true });
+// the static rectangles
+var ground = Bodies.rectangle(32, 80, 66, 10, {
+  isStatic: true,
+  frictionStatic: FLOOR_FRICTIONSTATIC,
+});
+var leftBar = Bodies.rectangle(11, 64, 20, 1, {
+  isStatic: true,
+  frictionStatic: FLOOR_FRICTIONSTATIC,
+});
+var rightBar = Bodies.rectangle(55, 64, 20, 1, {
+  isStatic: true,
+  frictionStatic: FLOOR_FRICTIONSTATIC,
+});
+var powBar = Bodies.rectangle(33, 64, 3, 2, {
+  isStatic: true,
+  frictionStatic: FLOOR_FRICTIONSTATIC,
+});
 
-// add ground body to the world
-Composite.add(engine.world, [ground]);
+// add bodies to the world
+Composite.add(engine.world, [ground, leftBar, rightBar, powBar]);
 
-// players; start with a simgle sprite
+// player sprite
 var players = [];
-var spriteBody = [];
 const newPlayer = createNewPlayer();
 players.push(newPlayer);
 
@@ -78,97 +107,65 @@ Runner.run(runner, engine);
 // - - - USER INPUT - - -
 
 function keyRouting(whichKey, keyCode) {
+  var playerIndex = 0;
+
   switch (whichKey) {
     // Mac - A key
     case "KeyA":
-      // player.lastKey = "up";
-      // const newPlayer = createNewPlayer();
-      // players.push(newPlayer);
       break;
 
     // Mac - Z key
     case "KeyZ":
-      // player.lastKey = "down";
       break;
 
-    // Mac - comma key
+    // Mac - space key
     case "Space":
-      Matter.Body.setVelocity(spriteBody[0], {
-        x: spriteBody[0].velocity.x,
-        y: -0.6,
-      });
+      playerIndex = 0;
+      changePlayerMovement(playerIndex, "jump");
       break;
 
     // Mac - comma key
     case "Comma":
-      if (players[0].direction == "right" && players[0].frameNo != 15) {
-        players[0].frameNo = 15;
-        Matter.Body.setVelocity(spriteBody[0], {
-          x: 0,
-          y: 0,
-        });
-      } else {
-        players[0].direction = "left";
-        players[0].frameNo = 1;
-        Matter.Body.setVelocity(spriteBody[0], {
-          x: -0.25,
-          y: 0,
-        });
-      }
+      playerIndex = 0;
+      changePlayerMovement(playerIndex, "left");
       break;
 
     // Mac - period key
     case "Period":
-      if (players[0].direction == "left" && players[0].frameNo != 5) {
-        players[0].frameNo = 5;
-        Matter.Body.setVelocity(spriteBody[0], {
-          x: 0,
-          y: 0,
-        });
-      } else {
-        players[0].direction = "right";
-        players[0].frameNo = 11;
-        Matter.Body.setVelocity(spriteBody[0], {
-          x: 0.25,
-          y: 0,
-        });
-      }
+      playerIndex = 0;
+      changePlayerMovement(playerIndex, "right");
       break;
 
     // Mac - Q key
     case "KeyQ":
-      clearTimeout(gameTimer);
-      clearInterval(gameTimer);
-      FileMaker.PerformScript("Game_Quit 3", "");
+      gameQuit();
       break;
 
     default:
       switch (keyCode) {
         // Windows - A key
         case 65:
-          players.lastKey = "up";
           break;
 
         // Windows - Z key
         case 90:
-          players.lastKey = "down";
           break;
 
         // Windows - comma key
         case 188:
-          players.lastKey = "left";
+          playerIndex = 0;
+          changePlayerMovement(playerIndex, "left");
           break;
 
         // Windows - period key
         case 190:
-          players.lastKey = "right";
+          playerIndex = 0;
+          changePlayerMovement(playerIndex, "right");
           break;
 
         // Windows - Q key
         case 81:
-          clearTimeout(gameTimer);
-          clearInterval(gameTimer);
-          FileMaker.PerformScript("Game_Quit", "");
+          gameQuit();
           break;
 
         default:
@@ -178,37 +175,59 @@ function keyRouting(whichKey, keyCode) {
 
 // - - - PLAYER - - -
 
+// init new player sprite & body
 function createNewPlayer() {
-  const playerCount = players.length;
-  const newX = Math.floor(Math.random() * 73) + 4;
   var newPlayer = {
-    positionX: 37,
-    positionY: 1,
+    positionX: PLAYER_INIT_X,
+    positionY: PLAYER_INIT_Y,
     previousPositionX: 0,
     previousPositionY: 0,
+    previousVelocityY: 0,
     frameNo: 5,
     direction: "left",
+    spriteBody: "",
   };
-  var newSpriteBody = Bodies.rectangle(
-    newPlayer.positionX,
-    newPlayer.positionY,
-    5,
-    5,
-    { restitution: 0, friction: 0, frictionAir: 0, density: 0.5 }
-  );
-  spriteBody.push(newSpriteBody);
-  Composite.add(engine.world, [newSpriteBody]);
+  var newSpriteBody = Bodies.rectangle(PLAYER_INIT_X, PLAYER_INIT_Y, 5, 5, {
+    restitution: PLAYER_BODY_RESTITUTION,
+    friction: PLAYER_BODY_FRICTION,
+    frictionAir: PLAYER_BODY_FRICTIONAIR,
+    density: PLAYER_BODY_DENSITY,
+  });
+  newPlayer.spriteBody = newSpriteBody;
+  Composite.add(engine.world, [newPlayer.spriteBody]);
   return newPlayer;
 }
 
+// handle player movement
 function playerMoving(playerIndex) {
+  // update previous position
   players[playerIndex].previousPositionX = players[playerIndex].positionX;
   players[playerIndex].previousPositionY = players[playerIndex].positionY;
 
-  // console.log("player[0] velocity.x: ", spriteBody[0].velocity.x);
+  // sliding handler
+  if (players[playerIndex].slideCount > 0) {
+    // decrement slide counter if sliding
+    players[playerIndex].slideCount -= 1;
 
-  // animations frames
-  // left (1, 2, 3, 4)
+    // test end of sliding
+    if (players[playerIndex].slideCount == 0) {
+      // begin standing still
+      if (players[playerIndex].direction == "slideleft") {
+        players[playerIndex].direction = "left";
+        players[playerIndex].frameNo = 5;
+      } else if (players[playerIndex].direction == "slideright") {
+        players[playerIndex].direction = "right";
+        players[playerIndex].frameNo = 15;
+      }
+      Matter.Body.setVelocity(players[playerIndex].spriteBody, {
+        x: 0,
+        y: 0,
+      });
+      //
+    }
+  }
+
+  // animations frames left (1, 2, 3, 4)
   if (
     players[playerIndex].direction == "left" &&
     players[playerIndex].frameNo < 4
@@ -220,7 +239,7 @@ function playerMoving(playerIndex) {
   ) {
     players[playerIndex].frameNo = 1;
   }
-  // right (11, 12, 13, 14)
+  // animations frames right (11, 12, 13, 14)
   if (
     players[playerIndex].direction == "right" &&
     players[playerIndex].frameNo < 14
@@ -233,18 +252,19 @@ function playerMoving(playerIndex) {
     players[playerIndex].frameNo = 11;
   }
   //
-  // X coords
+  // get new X coords from physics engine
   players[playerIndex].positionX = Math.trunc(
-    spriteBody[playerIndex].position.x
+    players[playerIndex].spriteBody.position.x
   );
-  // Y coords
+  // get new Y coords from physics engine
   players[playerIndex].positionY = Math.trunc(
-    spriteBody[playerIndex].position.y
+    players[playerIndex].spriteBody.position.y
   );
   //
 
+  // wrap-around when crossing either side
   if (players[playerIndex].positionX < 1) {
-    Matter.Body.set(spriteBody[0], "position", {
+    Matter.Body.set(players[playerIndex].spriteBody, "position", {
       x: 65,
       y: players[playerIndex].positionY,
     });
@@ -252,7 +272,7 @@ function playerMoving(playerIndex) {
     players[playerIndex].previousPositionX = 1;
   }
   if (players[playerIndex].positionX > 65) {
-    Matter.Body.set(spriteBody[0], "position", {
+    Matter.Body.set(players[playerIndex].spriteBody, "position", {
       x: 1,
       y: players[playerIndex].positionY,
     });
@@ -267,27 +287,9 @@ function playerMoving(playerIndex) {
     players[playerIndex].previousPositionY > 0 &&
     players[playerIndex].previousPositionY < 76
   ) {
-    // console.log(
-    //   "(x:",
-    //   players[playerIndex].previousPositionX,
-    //   ",y:",
-    //   players[playerIndex].previousPositionY,
-    //   ")=0"
-    // );
     screenBitmap[players[playerIndex].previousPositionX][
       players[playerIndex].previousPositionY
     ] = 0;
-  } else {
-    // console.log(
-    //   "prevXorY outOfBounds - x: ",
-    //   players[playerIndex].positionX,
-    //   ", prevX: ",
-    //   players[playerIndex].previousPositionX,
-    //   "y: ",
-    //   players[playerIndex].positionY,
-    //   ", prevY: ",
-    //   players[playerIndex].previousPositionY
-    // );
   }
   //
   // add new sprite position to bitmap
@@ -297,56 +299,66 @@ function playerMoving(playerIndex) {
     players[playerIndex].positionY > 0 &&
     players[playerIndex].positionY < 76
   ) {
-    // console.log(
-    //   "(x:",
-    //   players[playerIndex].positionX,
-    //   ",y:",
-    //   players[playerIndex].positionY,
-    //   ",dir:",
-    //   players[playerIndex].direction,
-    //   ")=",
-    //   players[playerIndex].frameNo
-    // );
     screenBitmap[players[playerIndex].positionX][
       players[playerIndex].positionY
     ] = players[playerIndex].frameNo;
-  } else {
-    // console.log(
-    //   "XorY outOfBounds - x: ",
-    //   players[playerIndex].positionX,
-    //   ", prevX: ",
-    //   players[playerIndex].previousPositionX,
-    //   "y: ",
-    //   players[playerIndex].positionY,
-    //   ", prevY: ",
-    //   players[playerIndex].previousPositionY
-    // );
+  }
+}
+
+// key pressed - player is changing it's movement
+function changePlayerMovement(playerIndex, newDirection) {
+  if (newDirection == "right") {
+    if (
+      players[playerIndex].direction == "left" &&
+      players[playerIndex].frameNo != 5
+    ) {
+      // begin sliding left
+      players[playerIndex].direction = "slideleft";
+      players[playerIndex].slideCount = PLAYER_SLIDE_NORMAL_FRAMECOUNT;
+      players[playerIndex].frameNo = 6;
+      //
+    } else if (players[playerIndex].direction == "slideleft") {
+      // do nothing
+      //
+    } else {
+      players[playerIndex].direction = "right";
+      players[playerIndex].frameNo = 11;
+      Matter.Body.setVelocity(players[playerIndex].spriteBody, {
+        x: PLAYER_RUN_VELOCITY_X,
+        y: 0,
+      });
+    }
   }
   //
-
+  if (newDirection == "left") {
+    if (
+      players[playerIndex].direction == "right" &&
+      players[playerIndex].frameNo != 15
+    ) {
+      // begin sliding right
+      players[playerIndex].direction = "slideright";
+      players[playerIndex].slideCount = PLAYER_SLIDE_NORMAL_FRAMECOUNT;
+      players[playerIndex].frameNo = 16;
+      //
+    } else if (players[playerIndex].direction == "slideright") {
+      // do nothing
+      //
+    } else {
+      players[playerIndex].direction = "left";
+      players[playerIndex].frameNo = 1;
+      Matter.Body.setVelocity(players[playerIndex].spriteBody, {
+        x: 0 - PLAYER_RUN_VELOCITY_X,
+        y: 0,
+      });
+    }
+  }
   //
-  // if position falls outside canvas bounds, just ignore and dont draw
-  // var outOfBoundsFlag = false;
-  // if (
-  //   players[playerIndex].positionX < 1 ||
-  //   players[playerIndex].positionX > 65 ||
-  //   players[playerIndex].positionY < 1 ||
-  //   players[playerIndex].positionY > 75
-  // ) {
-  //   outOfBoundsFlag = true;
-  // } else {
-  //   //
-  //   // remove previous sprite position from bitmap
-  //   screenBitmap[players[playerIndex].previousPositionX][
-  //     players[playerIndex].previousPositionY
-  //   ] = 0;
-  //   //
-  //   // add new sprite position to bitmap
-  //   screenBitmap[players[playerIndex].positionX][
-  //     players[playerIndex].positionY
-  //   ] = players[playerIndex].frameNo;
-  //   //
-  // }
+  if (newDirection == "jump") {
+    Matter.Body.setVelocity(players[playerIndex].spriteBody, {
+      x: players[playerIndex].spriteBody.velocity.x,
+      y: 0 - PLAYER_JUMP_VELOCITY_Y,
+    });
+  }
 }
 
 // - - - GAME INIT - - -
@@ -359,10 +371,6 @@ var gameTimer = setInterval(gameLoop, gameGlobals.timerDuration);
 // Global / Document - events
 $(document).ready(function () {
   // initial values
-  // FileMaker.PerformScript(
-  //   "Console ( data ) 3",
-  //   "screenBitmap: " + JSON.stringify(screenBitmap)
-  // );
 });
 
 // keydown event in window
@@ -392,7 +400,14 @@ function gameLoop() {
     }
     // prepare FMP parameter
     const params = {
-      players: players,
+      players: [
+        {
+          positionX: players[0].positionX,
+          positionY: players[0].positionY,
+          previousPositionX: players[0].previousPositionX,
+          previousPositionY: players[0].previousPositionY,
+        },
+      ],
       screenBitmap: screenBitmap,
     };
     // send FMP all the newest sprite data for rendering
@@ -402,4 +417,14 @@ function gameLoop() {
       0
     );
   }
+}
+
+// - - - EXIT GAME LOOP / QUIT - - -
+
+function gameQuit() {
+  clearTimeout(gameTimer);
+  clearInterval(gameTimer);
+  $(document).off("keydown");
+  $(document).off("keyup");
+  FileMaker.PerformScript("Game_Quit 3", "");
 }
