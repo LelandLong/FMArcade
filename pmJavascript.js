@@ -18,6 +18,10 @@ const PLAYER_FRAMES_LEFT = [2, 3, 1, 3];
 const PLAYER_FRAMES_RIGHT = [4, 5, 1, 5];
 const PLAYER_FRAMES_UP = [6, 7, 1, 7];
 const PLAYER_FRAMES_DOWN = [8, 9, 1, 9];
+const PLAYER_FRAMES_KILLED = [
+  7, 5, 9, 3, 7, 5, 9, 3, 7, 5, 9, 3, 6, 4, 8, 2, 6, 4, 8, 2, 6, 4, 8, 2, 1, 1,
+  0,
+];
 const ENEMY_FRAME_LEFT = 10;
 const ENEMY_FRAME_RIGHT = 11;
 const ENEMY_FRAME_UP = 12;
@@ -519,11 +523,11 @@ var player = {
   previousPositionX: 0,
   previousPositionY: 0,
   frameNo: 0,
-  movingFlag: false,
+  moving: false,
   whichWay: "left",
   lastKey: "left",
   score: 0,
-  killed: false,
+  dying: false,
 };
 
 var enemies = [
@@ -534,10 +538,10 @@ var enemies = [
     previousPositionY: 0,
     previousMoveBranched: false,
     whichWay: "left",
-    preparingFlag: true,
-    atHomeFlag: false,
-    scaredFlag: false,
-    killedFlag: false,
+    preparing: true,
+    atHome: false,
+    scared: false,
+    killed: false,
     deathTimer: 0,
   },
   {
@@ -547,10 +551,10 @@ var enemies = [
     previousPositionY: 0,
     previousMoveBranched: false,
     whichWay: "up",
-    preparingFlag: true,
-    atHomeFlag: false,
-    scaredFlag: false,
-    killedFlag: false,
+    preparing: true,
+    atHome: false,
+    scared: false,
+    killed: false,
     deathTimer: 0,
   },
   {
@@ -560,10 +564,10 @@ var enemies = [
     previousPositionY: 0,
     previousMoveBranched: false,
     whichWay: "down",
-    preparingFlag: true,
-    atHomeFlag: false,
-    scaredFlag: false,
-    killedFlag: false,
+    preparing: true,
+    atHome: false,
+    scared: false,
+    killed: false,
     deathTimer: 0,
   },
   {
@@ -573,10 +577,10 @@ var enemies = [
     previousPositionY: 0,
     previousMoveBranched: false,
     whichWay: "up",
-    preparingFlag: true,
-    atHomeFlag: false,
-    scaredFlag: false,
-    killedFlag: false,
+    preparing: true,
+    atHome: false,
+    scared: false,
+    killed: false,
     deathTimer: 0,
   },
 ];
@@ -796,35 +800,40 @@ function screenBitmapUpdate() {
     EMPTY_FRAME;
 
   // add current player sprite position to bitmap
-  switch (player.whichWay) {
-    case "left":
-      screenBitmap[player.positionY][player.positionX] =
-        PLAYER_FRAMES_LEFT[player.frameNo];
-      break;
+  if (player.dying) {
+    screenBitmap[player.positionY][player.positionX] =
+      PLAYER_FRAMES_KILLED[player.frameNo];
+  } else {
+    switch (player.whichWay) {
+      case "left":
+        screenBitmap[player.positionY][player.positionX] =
+          PLAYER_FRAMES_LEFT[player.frameNo];
+        break;
 
-    case "right":
-      screenBitmap[player.positionY][player.positionX] =
-        PLAYER_FRAMES_RIGHT[player.frameNo];
-      break;
+      case "right":
+        screenBitmap[player.positionY][player.positionX] =
+          PLAYER_FRAMES_RIGHT[player.frameNo];
+        break;
 
-    case "up":
-      screenBitmap[player.positionY][player.positionX] =
-        PLAYER_FRAMES_UP[player.frameNo];
-      break;
+      case "up":
+        screenBitmap[player.positionY][player.positionX] =
+          PLAYER_FRAMES_UP[player.frameNo];
+        break;
 
-    case "down":
-      screenBitmap[player.positionY][player.positionX] =
-        PLAYER_FRAMES_DOWN[player.frameNo];
-      break;
+      case "down":
+        screenBitmap[player.positionY][player.positionX] =
+          PLAYER_FRAMES_DOWN[player.frameNo];
+        break;
 
-    default:
-      FileMaker.PerformScriptWithOption(
-        "Console ( data ) 2",
-        "Error for screenBitmapUpdate PLAYER; default case - whichWay:" +
-          player.whichWay,
-        0
-      );
-  }
+      default:
+        FileMaker.PerformScriptWithOption(
+          "Console ( data ) 2",
+          "Error for screenBitmapUpdate PLAYER; default case - whichWay:" +
+            player.whichWay,
+          0
+        );
+    } // switch
+  } // if
 
   for (let index = 0; index < enemies.length; index++) {
     const enemy = enemies[index];
@@ -833,7 +842,7 @@ function screenBitmapUpdate() {
     screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
       EMPTY_FRAME;
 
-    if (!enemy.preparingFlag) {
+    if (!enemy.preparing) {
       // add current enemy sprite position to bitmap
       switch (enemy.whichWay) {
         case "left":
@@ -879,13 +888,59 @@ function prepareForPlay() {
   // player ready
   player.positionX = 32;
   player.positionY = 56;
-  player.previousPositionX = 0;
-  player.previousPositionY = 0;
   player.frameNo = 0;
-  player.movingFlag = false;
+  player.moving = false;
   player.whichWay = "left";
   player.lastKey = "left";
-  player.killed = false;
+  player.dying = false;
+
+  enemies[0].previousPositionX = enemies[0].positionX;
+  enemies[0].previousPositionX = enemies[0].positionY;
+  enemies[0].positionX = 0;
+  enemies[0].positionY = 0;
+  enemies[0].previousMoveBranched = false;
+  enemies[0].whichWay = "left";
+  enemies[0].preparing = true;
+  enemies[0].moving = false;
+  enemies[0].atHome = false;
+  enemies[0].scared = false;
+  enemies[0].deathTimer = 0;
+
+  enemies[1].previousPositionX = enemies[1].positionX;
+  enemies[1].previousPositionX = enemies[1].positionY;
+  enemies[1].positionX = 0;
+  enemies[1].positionY = 0;
+  enemies[1].previousMoveBranched = false;
+  enemies[1].whichWay = "up";
+  enemies[1].preparing = true;
+  enemies[1].moving = false;
+  enemies[1].atHome = false;
+  enemies[1].scared = false;
+  enemies[1].deathTimer = 0;
+
+  enemies[2].previousPositionX = enemies[2].positionX;
+  enemies[2].previousPositionX = enemies[2].positionY;
+  enemies[2].positionX = 0;
+  enemies[2].positionY = 0;
+  enemies[2].previousMoveBranched = false;
+  enemies[2].whichWay = "down";
+  enemies[2].preparing = true;
+  enemies[2].moving = false;
+  enemies[2].atHome = false;
+  enemies[2].scared = false;
+  enemies[2].deathTimer = 0;
+
+  enemies[3].previousPositionX = enemies[3].positionX;
+  enemies[3].previousPositionX = enemies[3].positionY;
+  enemies[3].positionX = 0;
+  enemies[3].positionY = 0;
+  enemies[3].previousMoveBranched = false;
+  enemies[3].whichWay = "up";
+  enemies[3].preparing = true;
+  enemies[3].moving = false;
+  enemies[3].atHome = false;
+  enemies[3].scared = false;
+  enemies[3].deathTimer = 0;
 
   // UI
   FileMaker.PerformScriptWithOption("PlayerReady 2", "", 0);
@@ -912,10 +967,11 @@ function setToPlay() {
       previousPositionY: 0,
       previousMoveBranched: false,
       whichWay: "left",
-      preparingFlag: false,
-      atHomeFlag: false,
-      scaredFlag: false,
-      killedFlag: false,
+      preparing: false,
+      moving: false,
+      atHome: false,
+      scared: false,
+      killed: false,
       deathTimer: 0,
     },
     {
@@ -925,10 +981,11 @@ function setToPlay() {
       previousPositionY: 0,
       previousMoveBranched: false,
       whichWay: "up",
-      preparingFlag: false,
-      atHomeFlag: true,
-      scaredFlag: false,
-      killedFlag: false,
+      preparing: false,
+      moving: false,
+      atHome: true,
+      scared: false,
+      killed: false,
       deathTimer: 0,
     },
     {
@@ -938,10 +995,11 @@ function setToPlay() {
       previousPositionY: 0,
       previousMoveBranched: false,
       whichWay: "down",
-      preparingFlag: false,
-      atHomeFlag: true,
-      scaredFlag: false,
-      killedFlag: false,
+      preparing: false,
+      moving: false,
+      atHome: true,
+      scared: false,
+      killed: false,
       deathTimer: 0,
     },
     {
@@ -951,10 +1009,11 @@ function setToPlay() {
       previousPositionY: 0,
       previousMoveBranched: false,
       whichWay: "up",
-      preparingFlag: false,
-      atHomeFlag: true,
-      scaredFlag: false,
-      killedFlag: false,
+      preparing: false,
+      moving: false,
+      atHome: true,
+      scared: false,
+      killed: false,
       deathTimer: 0,
     },
   ];
@@ -967,7 +1026,11 @@ function setToPlay() {
 
 function startPlay() {
   // player ready
-  player.movingFlag = true;
+  player.moving = true;
+
+  for (let index = 0; index < enemies.length; index++) {
+    enemies[index].moving = true;
+  }
 
   // UI
   FileMaker.PerformScriptWithOption("PlayerGo 2", "", 0);
@@ -993,32 +1056,44 @@ function endPlay() {
 // - - - PLAYER - - -
 
 function playerUpdate() {
-  // update previousPositions
-  player.previousPositionX = player.positionX;
-  player.previousPositionY = player.positionY;
+  if (player.moving) {
+    // update previousPositions
+    player.previousPositionX = player.positionX;
+    player.previousPositionY = player.positionY;
+  }
 
   // player wants to change direction
   if (player.whichWay != player.lastKey) {
     playerWantsToMove(player.lastKey);
   }
 
-  if (player.movingFlag) {
-    // 4 (0, 1, 2, 3) animations frames while moving
+  // frames
+  if (player.dying) {
+    // 27 animations frames while dying
+    player.frameNo += 1;
+    if (player.frameNo > 26) {
+      player.dying = false;
+      prepareForPlay();
+    }
+  } else if (player.moving) {
+    // 4 animations frames while moving
     player.frameNo += 1;
     if (player.frameNo > 3) {
       player.frameNo = 0;
     }
+  }
 
-    // directional control - stop if next spot is a wall
+  // directional control - stop if next spot is a wall
+  if (player.moving) {
     switch (player.whichWay) {
       case "left":
         if (
           screenBitmap[player.positionY][player.positionX - 1] != WALL_FRAME
         ) {
           player.positionX -= 1;
-          player.movingFlag = true;
+          player.moving = true;
         } else {
-          player.movingFlag = false;
+          player.moving = false;
         }
         break;
 
@@ -1027,9 +1102,9 @@ function playerUpdate() {
           screenBitmap[player.positionY][player.positionX + 1] != WALL_FRAME
         ) {
           player.positionX += 1;
-          player.movingFlag = true;
+          player.moving = true;
         } else {
-          player.movingFlag = false;
+          player.moving = false;
         }
         break;
 
@@ -1038,9 +1113,9 @@ function playerUpdate() {
           screenBitmap[player.positionY - 1][player.positionX] != WALL_FRAME
         ) {
           player.positionY -= 1;
-          player.movingFlag = true;
+          player.moving = true;
         } else {
-          player.movingFlag = false;
+          player.moving = false;
         }
         break;
 
@@ -1049,9 +1124,9 @@ function playerUpdate() {
           screenBitmap[player.positionY + 1][player.positionX] != WALL_FRAME
         ) {
           player.positionY += 1;
-          player.movingFlag = true;
+          player.moving = true;
         } else {
-          player.movingFlag = false;
+          player.moving = false;
         }
         break;
 
@@ -1072,60 +1147,128 @@ function playerUpdate() {
       player.positionX = 1;
       player.previousPositionX = 65;
     }
-  } // if
 
-  // collision detection
-  if (screenBitmap[player.positionY][player.positionX] == PELLET_FRAME) {
-    // pellets
-    player.score += SCORING_PELLET;
-  } else if (
-    screenBitmap[player.positionY][player.positionX] == ENERGIZER_FRAME
-  ) {
-    // energizers
-    player.score += SCORING_ENERGIZER;
-  } else if (screenBitmap[player.positionY][player.positionX] == CHERRY_FRAME) {
-    // fruit - cherry
-    player.score += SCORING_CHERRY;
-  } else if (
-    screenBitmap[player.positionY][player.positionX] == STRAWBERRY_FRAME
-  ) {
-    // fruit - strawberry
-    player.score += SCORING_STRAWBERRY;
-  } else if (screenBitmap[player.positionY][player.positionX] == PEACH_FRAME) {
-    // fruit - peach
-    player.score += SCORING_PEACH;
-  } else if (screenBitmap[player.positionY][player.positionX] == APPLE_FRAME) {
-    // fruit - apple
-    player.score += SCORING_APPLE;
-  } else if (screenBitmap[player.positionY][player.positionX] == GRAPES_FRAME) {
-    // fruit - grapes
-    player.score += SCORING_GRAPES;
-  } else if (
-    screenBitmap[player.positionY][player.positionX] == GALAXIAN_FRAME
-  ) {
-    // fruit - galaxian
-    player.score += SCORING_GALAXIAN;
-  } else if (screenBitmap[player.positionY][player.positionX] == BELL_FRAME) {
-    // fruit - bell
-    player.score += SCORING_BELL;
-  } else if (screenBitmap[player.positionY][player.positionX] == KEY_FRAME) {
-    // fruit - key
-    player.score += SCORING_KEY;
-  } else if (
-    screenBitmap[player.positionY][player.positionX] >= ENEMY_FRAME_LEFT &&
-    screenBitmap[player.positionY][player.positionX] <= ENEMY_FRAME_DOWN + 4 * 3
-  ) {
-    // enemy
-    player.killed = true;
-    player.movingFlag = false;
-  }
+    // collision detection
+    if (screenBitmap[player.positionY][player.positionX] == PELLET_FRAME) {
+      // pellets
+      player.score += SCORING_PELLET;
+    } else if (
+      screenBitmap[player.positionY][player.positionX] == ENERGIZER_FRAME
+    ) {
+      // energizers
+      player.score += SCORING_ENERGIZER;
+    } else if (
+      screenBitmap[player.positionY][player.positionX] == CHERRY_FRAME
+    ) {
+      // fruit - cherry
+      player.score += SCORING_CHERRY;
+    } else if (
+      screenBitmap[player.positionY][player.positionX] == STRAWBERRY_FRAME
+    ) {
+      // fruit - strawberry
+      player.score += SCORING_STRAWBERRY;
+    } else if (
+      screenBitmap[player.positionY][player.positionX] == PEACH_FRAME
+    ) {
+      // fruit - peach
+      player.score += SCORING_PEACH;
+    } else if (
+      screenBitmap[player.positionY][player.positionX] == APPLE_FRAME
+    ) {
+      // fruit - apple
+      player.score += SCORING_APPLE;
+    } else if (
+      screenBitmap[player.positionY][player.positionX] == GRAPES_FRAME
+    ) {
+      // fruit - grapes
+      player.score += SCORING_GRAPES;
+    } else if (
+      screenBitmap[player.positionY][player.positionX] == GALAXIAN_FRAME
+    ) {
+      // fruit - galaxian
+      player.score += SCORING_GALAXIAN;
+    } else if (screenBitmap[player.positionY][player.positionX] == BELL_FRAME) {
+      // fruit - bell
+      player.score += SCORING_BELL;
+    } else if (screenBitmap[player.positionY][player.positionX] == KEY_FRAME) {
+      // fruit - key
+      player.score += SCORING_KEY;
+    } else {
+      // enemies
+      switch (player.whichWay) {
+        case "left":
+          const nextLeft = screenBitmap[player.positionY][player.positionX - 1];
+          if (nextLeft >= ENEMY_FRAME_LEFT && nextLeft < PELLET_FRAME) {
+            console.log("tested POS for enemy collision, nextLeft: ", nextLeft);
+            player.dying = true;
+            player.frameNo = 0;
+            player.moving = false;
+            for (let index = 0; index < enemies.length; index++) {
+              enemies[index].moving = false;
+            }
+          }
+          break;
+
+        case "right":
+          const nextRight =
+            screenBitmap[player.positionY][player.positionX + 1];
+          if (nextRight >= ENEMY_FRAME_LEFT && nextRight < PELLET_FRAME) {
+            console.log(
+              "tested POS for enemy collision, nextRight: ",
+              nextRight
+            );
+            player.dying = true;
+            player.frameNo = 0;
+            player.moving = false;
+            for (let index = 0; index < enemies.length; index++) {
+              enemies[index].moving = false;
+            }
+          }
+          break;
+
+        case "up":
+          const nextUp = screenBitmap[player.positionY - 1][player.positionX];
+          if (nextUp >= ENEMY_FRAME_LEFT && nextUp < PELLET_FRAME) {
+            console.log("tested POS for enemy collision, nextUp: ", nextUp);
+            player.dying = true;
+            player.frameNo = 0;
+            player.moving = false;
+            for (let index = 0; index < enemies.length; index++) {
+              enemies[index].moving = false;
+            }
+          }
+          break;
+
+        case "down":
+          const nextDown = screenBitmap[player.positionY + 1][player.positionX];
+          if (nextDown >= ENEMY_FRAME_LEFT && nextDown < PELLET_FRAME) {
+            console.log("tested POS for enemy collision, nextDown: ", nextDown);
+            player.dying = true;
+            player.frameNo = 0;
+            player.moving = false;
+            for (let index = 0; index < enemies.length; index++) {
+              enemies[index].moving = false;
+            }
+          }
+          break;
+
+        default:
+          FileMaker.PerformScriptWithOption(
+            "Console ( data ) 2",
+            "Error for playerMoving; default case - whichWay:" +
+              player.whichWay,
+            0
+          );
+      } // switch
+    } // if
+  } // if
 }
 
 // - - -
 
 function playerWantsToMove(whichDirection) {
   // if alive & nor preparing
-  if (!player.killed && gameGlobals.preparingTimer == 0) {
+  if (!player.dying && gameGlobals.preparingTimer == 0) {
     // directional control
     switch (whichDirection) {
       case "left":
@@ -1133,7 +1276,7 @@ function playerWantsToMove(whichDirection) {
           screenBitmap[player.positionY][player.positionX - 1] != WALL_FRAME
         ) {
           // next position in this direction is not a wall
-          player.movingFlag = true;
+          player.moving = true;
           player.whichWay = whichDirection;
         }
         break;
@@ -1143,7 +1286,7 @@ function playerWantsToMove(whichDirection) {
           screenBitmap[player.positionY][player.positionX + 1] != WALL_FRAME
         ) {
           // next position in this direction is not a wall
-          player.movingFlag = true;
+          player.moving = true;
           player.whichWay = whichDirection;
         }
         break;
@@ -1153,7 +1296,7 @@ function playerWantsToMove(whichDirection) {
           screenBitmap[player.positionY - 1][player.positionX] != WALL_FRAME
         ) {
           // next position in this direction is not a wall
-          player.movingFlag = true;
+          player.moving = true;
           player.whichWay = whichDirection;
         }
         break;
@@ -1163,7 +1306,7 @@ function playerWantsToMove(whichDirection) {
           screenBitmap[player.positionY + 1][player.positionX] != WALL_FRAME
         ) {
           // next position in this direction is not a wall
-          player.movingFlag = true;
+          player.moving = true;
           player.whichWay = whichDirection;
         }
         break;
