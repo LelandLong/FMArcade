@@ -7,10 +7,14 @@
 var gameGlobals = {
   blinkCounter: 1,
   timerDuration: 70,
-  levelIndex: 1,
-  levelActive: true,
+  levelIndex: 0,
+  levelActive: false,
+  levelPelletCount: 0,
   scaredTimer: 0,
   preparingTimer: 0,
+  levelCompletedTimer: 0,
+  levelCompletedToggle: false,
+  levelPreparingTimer: 0,
 };
 
 // animation frame pattern for player
@@ -18,6 +22,7 @@ const PLAYER_FRAMES_LEFT = [2, 3, 1, 3];
 const PLAYER_FRAMES_RIGHT = [4, 5, 1, 5];
 const PLAYER_FRAMES_UP = [6, 7, 1, 7];
 const PLAYER_FRAMES_DOWN = [8, 9, 1, 9];
+const PLAYER_FRAMES_STILL = [1];
 const PLAYER_FRAMES_KILLED = [
   7, 5, 9, 3, 7, 5, 9, 3, 7, 5, 9, 3, 6, 4, 8, 2, 6, 4, 8, 2, 6, 4, 8, 2, 1, 1,
   0,
@@ -52,6 +57,11 @@ const SCORING_KEY = 5000;
 
 const PREPARING_FULLTIMER = 30;
 const PREPARING_HALFTIMER = 15;
+const LEVELCOMPLETED_TIMER = 39;
+const LEVELPREPARING_TIMER = 15;
+
+// count of pellets plus energizers
+// const PELLET_COUNT = 284;
 
 // screen bitmap; initialize empty array
 const columns = 70;
@@ -64,7 +74,7 @@ for (let row = 0; row < rows; row++) {
 }
 
 // initial bitmap with walls(50), pellets(30 x280), energizers(31 x4), and paths(0)
-var screenBitmap = [
+const initialScreenBitmap = [
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
@@ -595,6 +605,7 @@ var gameTimer;
 $(document).ready(function () {
   // refresh after delay (delay required to allow time for FileMaker object to be added to webviewer)
   const refreshDelay = setTimeout(() => {
+    prepareLevel();
     screenBitmapInitialRefresh();
   }, 50);
 
@@ -720,7 +731,7 @@ function updateFMP() {
       previousPositionX: player.previousPositionX,
       previousPositionY: player.previousPositionY,
       score: player.score,
-      timer: gameGlobals.preparingTimer,
+      pellets: gameGlobals.levelPelletCount,
     },
     enemies: [
       {
@@ -800,9 +811,14 @@ function screenBitmapUpdate() {
     EMPTY_FRAME;
 
   // add current player sprite position to bitmap
-  if (player.dying) {
+  if (gameGlobals.levelCompletedTimer > 0) {
+    screenBitmap[player.positionY][player.positionX] =
+      PLAYER_FRAMES_STILL[player.frameNo];
+    //
+  } else if (player.dying) {
     screenBitmap[player.positionY][player.positionX] =
       PLAYER_FRAMES_KILLED[player.frameNo];
+    //
   } else {
     switch (player.whichWay) {
       case "left":
@@ -894,8 +910,6 @@ function prepareForPlay() {
   player.lastKey = "left";
   player.dying = false;
 
-  enemies[0].previousPositionX = enemies[0].positionX;
-  enemies[0].previousPositionX = enemies[0].positionY;
   enemies[0].positionX = 0;
   enemies[0].positionY = 0;
   enemies[0].previousMoveBranched = false;
@@ -906,8 +920,6 @@ function prepareForPlay() {
   enemies[0].scared = false;
   enemies[0].deathTimer = 0;
 
-  enemies[1].previousPositionX = enemies[1].positionX;
-  enemies[1].previousPositionX = enemies[1].positionY;
   enemies[1].positionX = 0;
   enemies[1].positionY = 0;
   enemies[1].previousMoveBranched = false;
@@ -918,8 +930,6 @@ function prepareForPlay() {
   enemies[1].scared = false;
   enemies[1].deathTimer = 0;
 
-  enemies[2].previousPositionX = enemies[2].positionX;
-  enemies[2].previousPositionX = enemies[2].positionY;
   enemies[2].positionX = 0;
   enemies[2].positionY = 0;
   enemies[2].previousMoveBranched = false;
@@ -930,8 +940,6 @@ function prepareForPlay() {
   enemies[2].scared = false;
   enemies[2].deathTimer = 0;
 
-  enemies[3].previousPositionX = enemies[3].positionX;
-  enemies[3].previousPositionX = enemies[3].positionY;
   enemies[3].positionX = 0;
   enemies[3].positionY = 0;
   enemies[3].previousMoveBranched = false;
@@ -1038,6 +1046,18 @@ function startPlay() {
 
 // - - -
 
+function levelCompletion() {
+  gameGlobals.levelCompletedTimer = LEVELCOMPLETED_TIMER;
+
+  player.frameNo = 0;
+  player.moving = false;
+  for (let index = 0; index < enemies.length; index++) {
+    enemies[index].moving = false;
+  }
+}
+
+// - - -
+
 function endPlay() {
   // erase player sprite
   screenBitmap[player.positionY][player.positionX] = EMPTY_FRAME;
@@ -1051,6 +1071,17 @@ function endPlay() {
     screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
       EMPTY_FRAME;
   }
+}
+
+// - - -
+
+function prepareLevel() {
+  gameGlobals.levelActive = true;
+  gameGlobals.levelIndex += 1;
+
+  // initialize screenBitmap by copying from template (multi-dimensional array)
+  //     ref (option #8): https://www.freecodecamp.org/news/how-to-clone-an-array-in-javascript-1d3183468f6a/
+  screenBitmap = JSON.parse(JSON.stringify(initialScreenBitmap));
 }
 
 // - - - PLAYER - - -
@@ -1075,6 +1106,7 @@ function playerUpdate() {
       player.dying = false;
       prepareForPlay();
     }
+    //
   } else if (player.moving) {
     // 4 animations frames while moving
     player.frameNo += 1;
@@ -1199,7 +1231,6 @@ function playerUpdate() {
         case "left":
           const nextLeft = screenBitmap[player.positionY][player.positionX - 1];
           if (nextLeft >= ENEMY_FRAME_LEFT && nextLeft < PELLET_FRAME) {
-            console.log("tested POS for enemy collision, nextLeft: ", nextLeft);
             player.dying = true;
             player.frameNo = 0;
             player.moving = false;
@@ -1213,10 +1244,6 @@ function playerUpdate() {
           const nextRight =
             screenBitmap[player.positionY][player.positionX + 1];
           if (nextRight >= ENEMY_FRAME_LEFT && nextRight < PELLET_FRAME) {
-            console.log(
-              "tested POS for enemy collision, nextRight: ",
-              nextRight
-            );
             player.dying = true;
             player.frameNo = 0;
             player.moving = false;
@@ -1229,7 +1256,6 @@ function playerUpdate() {
         case "up":
           const nextUp = screenBitmap[player.positionY - 1][player.positionX];
           if (nextUp >= ENEMY_FRAME_LEFT && nextUp < PELLET_FRAME) {
-            console.log("tested POS for enemy collision, nextUp: ", nextUp);
             player.dying = true;
             player.frameNo = 0;
             player.moving = false;
@@ -1242,7 +1268,6 @@ function playerUpdate() {
         case "down":
           const nextDown = screenBitmap[player.positionY + 1][player.positionX];
           if (nextDown >= ENEMY_FRAME_LEFT && nextDown < PELLET_FRAME) {
-            console.log("tested POS for enemy collision, nextDown: ", nextDown);
             player.dying = true;
             player.frameNo = 0;
             player.moving = false;
@@ -1267,8 +1292,12 @@ function playerUpdate() {
 // - - -
 
 function playerWantsToMove(whichDirection) {
-  // if alive & nor preparing
-  if (!player.dying && gameGlobals.preparingTimer == 0) {
+  // if level active, not preparing, & player alive
+  if (
+    !player.dying &&
+    gameGlobals.preparingTimer == 0 &&
+    gameGlobals.levelCompletedTimer == 0
+  ) {
     // directional control
     switch (whichDirection) {
       case "left":
@@ -1326,30 +1355,84 @@ function playerWantsToMove(whichDirection) {
 function enemiesUpdate() {
   for (let index = 0; index < enemies.length; index++) {
     const enemy = enemies[index];
+    if (enemy.moving) {
+      // update previousPositions
+      enemy.previousPositionX = enemy.positionX;
+      enemy.previousPositionY = enemy.positionY;
+    }
   }
 }
 
 // - - - MAIN GAME LOOP - - -
 
 function gameLoop() {
-  // level not yet completed
-  if (gameGlobals.levelActive == true) {
-    // move sprites and update screenBitmap
-    playerUpdate();
-    enemiesUpdate();
-    screenBitmapUpdate();
+  // move sprites and update screenBitmap
+  playerUpdate();
+  enemiesUpdate();
+  screenBitmapUpdate();
 
-    // handle preparingForPlay
-    if (gameGlobals.preparingTimer > 0) {
-      gameGlobals.preparingTimer -= 1;
-      if (gameGlobals.preparingTimer == 0) {
-        startPlay();
-      } else if (gameGlobals.preparingTimer == PREPARING_HALFTIMER) {
-        setToPlay();
-      }
+  // handle pellet count
+  //     ref: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat
+  //     ref: https://linuxhint.com/count-certain-elements-in-array-in-javascript/
+  gameGlobals.levelPelletCount = screenBitmap
+    .flat()
+    .reduce(
+      (count, value) => (value == 30 || value == 31 ? count + 1 : count),
+      0
+    );
+
+  // handle level completed
+  if (
+    gameGlobals.levelCompletedTimer == 0 &&
+    gameGlobals.levelPreparingTimer == 0 &&
+    gameGlobals.levelPelletCount < 270
+  ) {
+    levelCompletion();
+  }
+
+  // handle preparingForPlay
+  if (gameGlobals.preparingTimer > 0) {
+    gameGlobals.preparingTimer -= 1;
+    if (gameGlobals.preparingTimer == 0) {
+      startPlay();
+    } else if (gameGlobals.preparingTimer == PREPARING_HALFTIMER) {
+      setToPlay();
     }
+  }
 
-    // render everything
-    updateFMP();
-  } // if
+  // handle level completed
+  if (gameGlobals.levelCompletedTimer > 0) {
+    gameGlobals.levelCompletedTimer -= 1;
+    //
+    if (gameGlobals.levelCompletedTimer == 0) {
+      gameGlobals.levelPreparingTimer = LEVELPREPARING_TIMER;
+      // enable erasing sprite from current location
+      player.previousPositionX = player.positionX;
+      player.previousPositionY = player.positionY;
+      player.positionX = 0;
+      player.positionY = 0;
+      // timer completion
+      prepareLevel();
+      screenBitmapInitialRefresh();
+      //
+    } else if (gameGlobals.levelCompletedTimer % 3 == 0) {
+      // toggle backdrop via script
+      FileMaker.PerformScriptWithOption("BackdropAlternateToggle 2", "", 0);
+    }
+  }
+
+  // handle level preparation
+  if (gameGlobals.levelPreparingTimer > 0) {
+    // enable erasing sprite from current location (prevents last pellet from being lost)
+    player.previousPositionX = player.positionX;
+    player.previousPositionY = player.positionY;
+
+    gameGlobals.levelPreparingTimer -= 1;
+    if (gameGlobals.levelPreparingTimer == 0) {
+      prepareForPlay();
+    }
+  }
+
+  // render everything
+  updateFMP();
 }
