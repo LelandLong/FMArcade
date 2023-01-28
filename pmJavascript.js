@@ -7,6 +7,7 @@
 var gameGlobals = {
   blinkCounter: 1,
   timerDuration: 70,
+  extraLife: false,
   levelIndex: 0,
   levelActive: false,
   levelPelletCount: 0,
@@ -15,6 +16,9 @@ var gameGlobals = {
   levelCompletedTimer: 0,
   levelCompletedToggle: false,
   levelPreparingTimer: 0,
+  firstFruitFlag: false,
+  secondFruitFlag: false,
+  fruitTimer: 0,
 };
 
 // animation frame pattern for player
@@ -36,13 +40,13 @@ const ENERGIZER_FRAME = 31;
 const WALL_FRAME = 50;
 const EMPTY_FRAME = 0;
 const CHERRY_FRAME = 40;
-const STRAWBERRY_FRAME = 40;
-const PEACH_FRAME = 40;
-const APPLE_FRAME = 40;
-const GRAPES_FRAME = 40;
-const GALAXIAN_FRAME = 40;
-const BELL_FRAME = 40;
-const KEY_FRAME = 40;
+const STRAWBERRY_FRAME = 41;
+const PEACH_FRAME = 42;
+const APPLE_FRAME = 43;
+const GRAPES_FRAME = 44;
+const GALAXIAN_FRAME = 45;
+const BELL_FRAME = 46;
+const KEY_FRAME = 47;
 
 const SCORING_PELLET = 10;
 const SCORING_ENERGIZER = 50;
@@ -54,14 +58,20 @@ const SCORING_GRAPES = 1000;
 const SCORING_GALAXIAN = 2000;
 const SCORING_BELL = 3000;
 const SCORING_KEY = 5000;
+const EXTRA_LIFE_SCORE = 10000;
 
 const PREPARING_FULLTIMER = 30;
 const PREPARING_HALFTIMER = 15;
 const LEVELCOMPLETED_TIMER = 39;
 const LEVELPREPARING_TIMER = 15;
+const FRUIT_TIMER = Math.trunc(10000 / gameGlobals.timerDuration); // 10 secs
 
-// count of pellets plus energizers
-// const PELLET_COUNT = 284;
+// count of pellets
+const PELLET_COUNT = 280;
+
+// fruit
+const FRUIT_ROW = 41;
+const FRUIT_COLUMN = 33;
 
 // screen bitmap; initialize empty array
 const columns = 70;
@@ -537,6 +547,7 @@ var player = {
   whichWay: "left",
   lastKey: "left",
   score: 0,
+  lives: 3,
   dying: false,
 };
 
@@ -730,8 +741,15 @@ function updateFMP() {
       positionY: player.positionY,
       previousPositionX: player.previousPositionX,
       previousPositionY: player.previousPositionY,
+      level: gameGlobals.levelIndex,
       score: player.score,
+      lives: player.lives,
       pellets: gameGlobals.levelPelletCount,
+    },
+    fruit: {
+      timer: gameGlobals.fruitTimer,
+      fruitX: FRUIT_COLUMN,
+      fruitY: FRUIT_ROW,
     },
     enemies: [
       {
@@ -1078,10 +1096,77 @@ function endPlay() {
 function prepareLevel() {
   gameGlobals.levelActive = true;
   gameGlobals.levelIndex += 1;
+  gameGlobals.firstFruitFlag = false;
+  gameGlobals.secondFruitFlag = false;
+  // gameGlobals.levelPelletCount = PELLET_COUNT;
 
   // initialize screenBitmap by copying from template (multi-dimensional array)
   //     ref (option #8): https://www.freecodecamp.org/news/how-to-clone-an-array-in-javascript-1d3183468f6a/
   screenBitmap = JSON.parse(JSON.stringify(initialScreenBitmap));
+}
+
+// - - -
+
+function addFruit() {
+  switch (gameGlobals.levelIndex) {
+    case 1:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = CHERRY_FRAME;
+      break;
+
+    case 2:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = STRAWBERRY_FRAME;
+      break;
+
+    case 3:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = PEACH_FRAME;
+      break;
+
+    case 4:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = PEACH_FRAME;
+      break;
+
+    case 5:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = APPLE_FRAME;
+      break;
+
+    case 6:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = APPLE_FRAME;
+      break;
+
+    case 7:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = GRAPES_FRAME;
+      break;
+
+    case 8:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = GRAPES_FRAME;
+      break;
+
+    case 9:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = GALAXIAN_FRAME;
+      break;
+
+    case 10:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = GALAXIAN_FRAME;
+      break;
+
+    case 11:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = BELL_FRAME;
+      break;
+
+    case 12:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = BELL_FRAME;
+      break;
+
+    default:
+      screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = KEY_FRAME;
+      break;
+  }
+}
+
+// - - -
+
+function removeFruit() {
+  screenBitmap[FRUIT_ROW][FRUIT_COLUMN] = EMPTY_FRAME;
 }
 
 // - - - PLAYER - - -
@@ -1184,11 +1269,13 @@ function playerUpdate() {
     if (screenBitmap[player.positionY][player.positionX] == PELLET_FRAME) {
       // pellets
       player.score += SCORING_PELLET;
+      // gameGlobals.levelPelletCount -= 1;
     } else if (
       screenBitmap[player.positionY][player.positionX] == ENERGIZER_FRAME
     ) {
       // energizers
       player.score += SCORING_ENERGIZER;
+      // gameGlobals.levelPelletCount -= 1;
     } else if (
       screenBitmap[player.positionY][player.positionX] == CHERRY_FRAME
     ) {
@@ -1232,6 +1319,7 @@ function playerUpdate() {
           const nextLeft = screenBitmap[player.positionY][player.positionX - 1];
           if (nextLeft >= ENEMY_FRAME_LEFT && nextLeft < PELLET_FRAME) {
             player.dying = true;
+            player.lives -= 1;
             player.frameNo = 0;
             player.moving = false;
             for (let index = 0; index < enemies.length; index++) {
@@ -1245,6 +1333,7 @@ function playerUpdate() {
             screenBitmap[player.positionY][player.positionX + 1];
           if (nextRight >= ENEMY_FRAME_LEFT && nextRight < PELLET_FRAME) {
             player.dying = true;
+            player.lives -= 1;
             player.frameNo = 0;
             player.moving = false;
             for (let index = 0; index < enemies.length; index++) {
@@ -1257,6 +1346,7 @@ function playerUpdate() {
           const nextUp = screenBitmap[player.positionY - 1][player.positionX];
           if (nextUp >= ENEMY_FRAME_LEFT && nextUp < PELLET_FRAME) {
             player.dying = true;
+            player.lives -= 1;
             player.frameNo = 0;
             player.moving = false;
             for (let index = 0; index < enemies.length; index++) {
@@ -1269,6 +1359,7 @@ function playerUpdate() {
           const nextDown = screenBitmap[player.positionY + 1][player.positionX];
           if (nextDown >= ENEMY_FRAME_LEFT && nextDown < PELLET_FRAME) {
             player.dying = true;
+            player.lives -= 1;
             player.frameNo = 0;
             player.moving = false;
             for (let index = 0; index < enemies.length; index++) {
@@ -1371,7 +1462,13 @@ function gameLoop() {
   enemiesUpdate();
   screenBitmapUpdate();
 
-  // handle pellet count
+  // handle extra life
+  if (!gameGlobals.extraLife && player.score > EXTRA_LIFE_SCORE) {
+    gameGlobals.extraLife = true;
+    player.lives += 1;
+  }
+
+  // handle pellet count - converted to simpler count to save possibly expensive process
   //     ref: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat
   //     ref: https://linuxhint.com/count-certain-elements-in-array-in-javascript/
   gameGlobals.levelPelletCount = screenBitmap
@@ -1381,11 +1478,35 @@ function gameLoop() {
       0
     );
 
+  // handle fruit
+  if (
+    !gameGlobals.firstFruitFlag &&
+    gameGlobals.levelPelletCount < PELLET_COUNT - 70
+  ) {
+    gameGlobals.firstFruitFlag = true;
+    gameGlobals.fruitTimer = FRUIT_TIMER;
+    addFruit();
+  } else if (
+    !gameGlobals.secondFruitFlag &&
+    gameGlobals.levelPelletCount < PELLET_COUNT - 170
+  ) {
+    gameGlobals.secondFruitFlag = true;
+    gameGlobals.fruitTimer = FRUIT_TIMER;
+    addFruit();
+  }
+  //
+  if (gameGlobals.fruitTimer > 0) {
+    gameGlobals.fruitTimer -= 1;
+    if (gameGlobals.fruitTimer == 0) {
+      removeFruit();
+    }
+  }
+
   // handle level completed
   if (
     gameGlobals.levelCompletedTimer == 0 &&
     gameGlobals.levelPreparingTimer == 0 &&
-    gameGlobals.levelPelletCount < 270
+    gameGlobals.levelPelletCount < 1
   ) {
     levelCompletion();
   }
