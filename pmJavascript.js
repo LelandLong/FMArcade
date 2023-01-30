@@ -19,6 +19,8 @@ var gameGlobals = {
   firstFruitFlag: false,
   secondFruitFlag: false,
   fruitTimer: 0,
+  fruitScore: "",
+  fruitScoreTimer: 0,
 };
 
 // animation frame pattern for player
@@ -65,6 +67,7 @@ const PREPARING_HALFTIMER = 15;
 const LEVELCOMPLETED_TIMER = 39;
 const LEVELPREPARING_TIMER = 15;
 const FRUIT_TIMER = Math.trunc(10000 / gameGlobals.timerDuration); // 10 secs
+const FRUIT_SCORE_TIMER = 30;
 
 // count of pellets
 const PELLET_COUNT = 280;
@@ -538,6 +541,7 @@ const initialScreenBitmap = [
 ];
 
 var player = {
+  keyboardControls: {},
   positionX: 32,
   positionY: 56,
   previousPositionX: 0,
@@ -649,25 +653,42 @@ $(document).keyup(function (e) {
 
 // - - - USER INPUT - - -
 
+function incomingUserControls(keyboardControls) {
+  // console.log("incomingUserControls, keyboardControls: ", keyboardControls);
+  player.keyboardControls = JSON.parse(keyboardControls);
+}
+
 function keyRouting(whichKey, keyCode) {
+  // console.log(
+  //   "keyRouting, player.up: ",
+  //   player.keyboardControls.up,
+  //   "; player.rt: ",
+  //   player.keyboardControls.right,
+  //   "; player.dn: ",
+  //   player.keyboardControls.down,
+  //   "; player.lt: ",
+  //   player.keyboardControls.left,
+  //   "; whichKey: ",
+  //   whichKey
+  // );
   switch (whichKey) {
     // Mac - A key
-    case "KeyA":
+    case player.keyboardControls.up:
       player.lastKey = "up";
       break;
 
     // Mac - Z key
-    case "KeyZ":
+    case player.keyboardControls.down:
       player.lastKey = "down";
       break;
 
     // Mac - comma key
-    case "Comma":
+    case player.keyboardControls.left:
       player.lastKey = "left";
       break;
 
     // Mac - period key
-    case "Period":
+    case player.keyboardControls.right:
       player.lastKey = "right";
       break;
 
@@ -680,6 +701,7 @@ function keyRouting(whichKey, keyCode) {
       break;
 
     default:
+      console.log("keyRouting DEFAULT (no Mac keys)");
       switch (keyCode) {
         // Windows - A key
         case 65:
@@ -747,9 +769,9 @@ function updateFMP() {
       pellets: gameGlobals.levelPelletCount,
     },
     fruit: {
-      timer: gameGlobals.fruitTimer,
       fruitX: FRUIT_COLUMN,
       fruitY: FRUIT_ROW,
+      fruitScore: player.fruitScore,
     },
     enemies: [
       {
@@ -792,6 +814,8 @@ function updateFMP() {
 
 function screenBitmapInitialRefresh() {
   // provide FMP with initial screenBitmap
+  //    NOTE: this script also runs a sub-script that sends keyboardControls
+  //            to our function "incomingUserControls(keyboardControls)"
   FileMaker.PerformScriptWithOption(
     "InitialScreenBitmap ( screenBitmap ) 2",
     JSON.stringify(screenBitmap),
@@ -1281,37 +1305,53 @@ function playerUpdate() {
     ) {
       // fruit - cherry
       player.score += SCORING_CHERRY;
+      player.fruitScore = SCORING_CHERRY;
+      gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else if (
       screenBitmap[player.positionY][player.positionX] == STRAWBERRY_FRAME
     ) {
       // fruit - strawberry
       player.score += SCORING_STRAWBERRY;
+      player.fruitScore = SCORING_STRAWBERRY;
+      gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else if (
       screenBitmap[player.positionY][player.positionX] == PEACH_FRAME
     ) {
       // fruit - peach
       player.score += SCORING_PEACH;
+      player.fruitScore = SCORING_PEACH;
+      gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else if (
       screenBitmap[player.positionY][player.positionX] == APPLE_FRAME
     ) {
       // fruit - apple
       player.score += SCORING_APPLE;
+      player.fruitScore = SCORING_APPLE;
+      gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else if (
       screenBitmap[player.positionY][player.positionX] == GRAPES_FRAME
     ) {
       // fruit - grapes
       player.score += SCORING_GRAPES;
+      player.fruitScore = SCORING_GRAPES;
+      gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else if (
       screenBitmap[player.positionY][player.positionX] == GALAXIAN_FRAME
     ) {
       // fruit - galaxian
       player.score += SCORING_GALAXIAN;
+      player.fruitScore = SCORING_GALAXIAN;
+      gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else if (screenBitmap[player.positionY][player.positionX] == BELL_FRAME) {
       // fruit - bell
       player.score += SCORING_BELL;
+      player.fruitScore = SCORING_BELL;
+      gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else if (screenBitmap[player.positionY][player.positionX] == KEY_FRAME) {
       // fruit - key
       player.score += SCORING_KEY;
+      player.fruitScore = SCORING_KEY;
+      gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else {
       // enemies
       switch (player.whichWay) {
@@ -1499,6 +1539,13 @@ function gameLoop() {
     gameGlobals.fruitTimer -= 1;
     if (gameGlobals.fruitTimer == 0) {
       removeFruit();
+    }
+  }
+  //
+  if (gameGlobals.fruitScoreTimer > 0) {
+    gameGlobals.fruitScoreTimer -= 1;
+    if (gameGlobals.fruitScoreTimer == 0) {
+      player.fruitScore = "";
     }
   }
 
