@@ -5,7 +5,7 @@
 
 // Global vars
 var gameGlobals = {
-  blinkCounter: 1,
+  lastKey: "",
   timerDuration: 70,
   extraLife: false,
   levelIndex: 0,
@@ -21,6 +21,9 @@ var gameGlobals = {
   fruitTimer: 0,
   fruitScore: "",
   fruitScoreTimer: 0,
+  scaredTimer: 0,
+  blinkTimer: 3,
+  blinkFrame: 31,
 };
 
 // animation frame pattern for player
@@ -37,8 +40,11 @@ const ENEMY_FRAME_LEFT = 10;
 const ENEMY_FRAME_RIGHT = 11;
 const ENEMY_FRAME_UP = 12;
 const ENEMY_FRAME_DOWN = 13;
+const ENEMY_FRAME_SCARED = 26;
+const ENEMY_FRAME_SCAREDALT = 27;
 const PELLET_FRAME = 30;
 const ENERGIZER_FRAME = 31;
+const ENERGIZERALT_FRAME = 32; // empty graphic (blinking)
 const WALL_FRAME = 50;
 const EMPTY_FRAME = 0;
 const CHERRY_FRAME = 40;
@@ -68,6 +74,9 @@ const LEVELCOMPLETED_TIMER = 39;
 const LEVELPREPARING_TIMER = 15;
 const FRUIT_TIMER = Math.trunc(10000 / gameGlobals.timerDuration); // 10 secs
 const FRUIT_SCORE_TIMER = 30;
+const ENEMY_SCARED_TIMER = Math.trunc(8000 / gameGlobals.timerDuration); // 8 secs;
+const ENEMY_SCARED_HALFTIMER = Math.trunc(ENEMY_SCARED_TIMER / 2); // 4 secs;
+const BLINK_TIMER = 3;
 
 // count of pellets
 const PELLET_COUNT = 280;
@@ -566,6 +575,7 @@ var enemies = [
     preparing: true,
     atHome: false,
     scared: false,
+    scaredFrame: 0,
     killed: false,
     deathTimer: 0,
   },
@@ -579,6 +589,7 @@ var enemies = [
     preparing: true,
     atHome: false,
     scared: false,
+    scaredFrame: 0,
     killed: false,
     deathTimer: 0,
   },
@@ -592,6 +603,7 @@ var enemies = [
     preparing: true,
     atHome: false,
     scared: false,
+    scaredFrame: 0,
     killed: false,
     deathTimer: 0,
   },
@@ -605,6 +617,7 @@ var enemies = [
     preparing: true,
     atHome: false,
     scared: false,
+    scaredFrame: 0,
     killed: false,
     deathTimer: 0,
   },
@@ -634,22 +647,29 @@ $(document).keydown(function (e) {
   var keys = new Object();
   keys.whichKey = e.code;
   keys.keyCode = e.keyCode;
-  FileMaker.PerformScriptWithOption(
-    "Keyboard ( data ) 2",
-    JSON.stringify(keys),
-    0
-  );
-  keyRouting(keys.whichKey, keys.keyCode);
+
+  // ignore if same as last key press captured
+  if (gameGlobals.lastKey != e.keyCode) {
+    gameGlobals.lastKey = e.keyCode;
+    // FileMaker.PerformScriptWithOption(
+    //   "Keyboard ( data ) 2",
+    //   JSON.stringify(keys),
+    //   0
+    // );
+    keyRouting(keys.whichKey, keys.keyCode);
+  }
 });
-$(document).keyup(function (e) {
-  var keys = new Object();
-  keys.whichKey = " ";
-  FileMaker.PerformScriptWithOption(
-    "Keyboard ( data ) 2",
-    JSON.stringify(keys),
-    0
-  );
-});
+
+// $(document).keyup(function (e) {
+//   gameGlobals.lastKey = "";
+// var keys = new Object();
+// keys.whichKey = " ";
+// FileMaker.PerformScriptWithOption(
+//   "Keyboard ( data ) 2",
+//   JSON.stringify(keys),
+//   0
+// );
+// });
 
 // - - - USER INPUT - - -
 
@@ -766,7 +786,6 @@ function updateFMP() {
       level: gameGlobals.levelIndex,
       score: player.score,
       lives: player.lives,
-      pellets: gameGlobals.levelPelletCount,
     },
     fruit: {
       fruitX: FRUIT_COLUMN,
@@ -902,35 +921,52 @@ function screenBitmapUpdate() {
 
     if (!enemy.preparing) {
       // add current enemy sprite position to bitmap
-      switch (enemy.whichWay) {
-        case "left":
-          screenBitmap[enemy.positionY][enemy.positionX] =
-            ENEMY_FRAME_LEFT + index * 4;
-          break;
+      if (enemy.scared) {
+        if (gameGlobals.scaredTimer < ENEMY_SCARED_HALFTIMER) {
+          // if timer is half fininshed, begin scared icon "flashing"
+          if (gameGlobals.scaredTimer % 3 == 0) {
+            // flash every 3rd frame
+            if (enemy.scaredFrame == ENEMY_FRAME_SCARED) {
+              enemy.scaredFrame = ENEMY_FRAME_SCAREDALT;
+            } else {
+              enemy.scaredFrame = ENEMY_FRAME_SCARED;
+            }
+          }
+        } else {
+          enemy.scaredFrame = ENEMY_FRAME_SCARED;
+        }
+        screenBitmap[enemy.positionY][enemy.positionX] = enemy.scaredFrame;
+      } else {
+        switch (enemy.whichWay) {
+          case "left":
+            screenBitmap[enemy.positionY][enemy.positionX] =
+              ENEMY_FRAME_LEFT + index * 4;
+            break;
 
-        case "right":
-          screenBitmap[enemy.positionY][enemy.positionX] =
-            ENEMY_FRAME_RIGHT + index * 4;
-          break;
+          case "right":
+            screenBitmap[enemy.positionY][enemy.positionX] =
+              ENEMY_FRAME_RIGHT + index * 4;
+            break;
 
-        case "up":
-          screenBitmap[enemy.positionY][enemy.positionX] =
-            ENEMY_FRAME_UP + index * 4;
-          break;
+          case "up":
+            screenBitmap[enemy.positionY][enemy.positionX] =
+              ENEMY_FRAME_UP + index * 4;
+            break;
 
-        case "down":
-          screenBitmap[enemy.positionY][enemy.positionX] =
-            ENEMY_FRAME_DOWN + index * 4;
-          break;
+          case "down":
+            screenBitmap[enemy.positionY][enemy.positionX] =
+              ENEMY_FRAME_DOWN + index * 4;
+            break;
 
-        default:
-          FileMaker.PerformScriptWithOption(
-            "Console ( data ) 2",
-            "Error for screenBitmapUpdate ENEMY; default case - whichWay:" +
-              enemy.whichWay,
-            0
-          );
-      } // switch
+          default:
+            FileMaker.PerformScriptWithOption(
+              "Console ( data ) 2",
+              "Error for screenBitmapUpdate ENEMY; default case - whichWay:" +
+                enemy.whichWay,
+              0
+            );
+        } // switch
+      } // if
     } else {
       screenBitmap[enemy.positionY][enemy.positionX] = EMPTY_FRAME;
     } // if
@@ -960,6 +996,7 @@ function prepareForPlay() {
   enemies[0].moving = false;
   enemies[0].atHome = false;
   enemies[0].scared = false;
+  enemies[0].scaredFrame = 0;
   enemies[0].deathTimer = 0;
 
   enemies[1].positionX = 0;
@@ -970,6 +1007,7 @@ function prepareForPlay() {
   enemies[1].moving = false;
   enemies[1].atHome = false;
   enemies[1].scared = false;
+  enemies[1].scaredFrame = 0;
   enemies[1].deathTimer = 0;
 
   enemies[2].positionX = 0;
@@ -980,6 +1018,7 @@ function prepareForPlay() {
   enemies[2].moving = false;
   enemies[2].atHome = false;
   enemies[2].scared = false;
+  enemies[2].scaredFrame = 0;
   enemies[2].deathTimer = 0;
 
   enemies[3].positionX = 0;
@@ -990,6 +1029,7 @@ function prepareForPlay() {
   enemies[3].moving = false;
   enemies[3].atHome = false;
   enemies[3].scared = false;
+  enemies[3].scaredFrame = 0;
   enemies[3].deathTimer = 0;
 
   // UI
@@ -1021,6 +1061,7 @@ function setToPlay() {
       moving: false,
       atHome: false,
       scared: false,
+      scaredFrame: 0,
       killed: false,
       deathTimer: 0,
     },
@@ -1035,6 +1076,7 @@ function setToPlay() {
       moving: false,
       atHome: true,
       scared: false,
+      scaredFrame: 0,
       killed: false,
       deathTimer: 0,
     },
@@ -1049,6 +1091,7 @@ function setToPlay() {
       moving: false,
       atHome: true,
       scared: false,
+      scaredFrame: 0,
       killed: false,
       deathTimer: 0,
     },
@@ -1063,6 +1106,7 @@ function setToPlay() {
       moving: false,
       atHome: true,
       scared: false,
+      scaredFrame: 0,
       killed: false,
       deathTimer: 0,
     },
@@ -1293,13 +1337,17 @@ function playerUpdate() {
     if (screenBitmap[player.positionY][player.positionX] == PELLET_FRAME) {
       // pellets
       player.score += SCORING_PELLET;
-      // gameGlobals.levelPelletCount -= 1;
     } else if (
-      screenBitmap[player.positionY][player.positionX] == ENERGIZER_FRAME
+      screenBitmap[player.positionY][player.positionX] == ENERGIZER_FRAME ||
+      screenBitmap[player.positionY][player.positionX] == ENERGIZERALT_FRAME
     ) {
       // energizers
       player.score += SCORING_ENERGIZER;
-      // gameGlobals.levelPelletCount -= 1;
+      for (let index = 0; index < enemies.length; index++) {
+        // enbemies become scared during timer
+        enemies[index].scared = true;
+      }
+      gameGlobals.scaredTimer = ENEMY_SCARED_TIMER;
     } else if (
       screenBitmap[player.positionY][player.positionX] == CHERRY_FRAME
     ) {
@@ -1546,6 +1594,46 @@ function gameLoop() {
     gameGlobals.fruitScoreTimer -= 1;
     if (gameGlobals.fruitScoreTimer == 0) {
       player.fruitScore = "";
+    }
+  }
+
+  // handle blinkTimer
+  if (gameGlobals.preparingTimer == 0) {
+    if (gameGlobals.blinkTimer > 0) {
+      gameGlobals.blinkTimer -= 1;
+      if (gameGlobals.blinkTimer == 0) {
+        // reset timer
+        gameGlobals.blinkTimer = BLINK_TIMER;
+        // select blink frame
+        if (gameGlobals.blinkFrame == ENERGIZER_FRAME) {
+          gameGlobals.blinkFrame = ENERGIZERALT_FRAME;
+        } else {
+          gameGlobals.blinkFrame = ENERGIZER_FRAME;
+        }
+        // energizers
+        if (screenBitmap[56][2] != EMPTY_FRAME) {
+          screenBitmap[56][2] = gameGlobals.blinkFrame;
+        }
+        if (screenBitmap[56][63] != EMPTY_FRAME) {
+          screenBitmap[56][63] = gameGlobals.blinkFrame;
+        }
+        if (screenBitmap[6][2] != EMPTY_FRAME) {
+          screenBitmap[6][2] = gameGlobals.blinkFrame;
+        }
+        if (screenBitmap[6][63] != EMPTY_FRAME) {
+          screenBitmap[6][63] = gameGlobals.blinkFrame;
+        }
+      }
+    }
+  }
+
+  // handle scaredTimer
+  if (gameGlobals.scaredTimer > 0) {
+    gameGlobals.scaredTimer -= 1;
+    if (gameGlobals.scaredTimer == 0) {
+      for (let index = 0; index < enemies.length; index++) {
+        enemies[index].scared = false;
+      }
     }
   }
 
