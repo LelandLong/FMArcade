@@ -22,7 +22,7 @@ var gameGlobals = {
   fruitScoreTimer: 0,
   blinkTimer: 3,
   blinkFrame: 31,
-  enemyMode: 0,
+  enemyMode: 1,
   scatterTimer: 0,
   chaseTimer: 0,
 };
@@ -580,6 +580,7 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
+    tunnelTimer: 0,
     previousFrame: 0,
     targetTileX: 0,
     targetTileY: 0,
@@ -597,6 +598,7 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
+    tunnelTimer: 0,
     previousFrame: 0,
     targetTileX: 0,
     targetTileY: 0,
@@ -614,6 +616,7 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
+    tunnelTimer: 0,
     previousFrame: 0,
     targetTileX: 0,
     targetTileY: 0,
@@ -631,6 +634,7 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
+    tunnelTimer: 0,
     previousFrame: 0,
     targetTileX: 0,
     targetTileY: 0,
@@ -1101,6 +1105,7 @@ function setToPlay() {
       positionY: 27,
       previousPositionX: 0,
       previousPositionY: 0,
+      tunnelTimer: 0,
       previousFrame: 0,
       targetTileX: 0,
       targetTileY: 0,
@@ -1121,6 +1126,7 @@ function setToPlay() {
       // positionY: 34,
       previousPositionX: 0,
       previousPositionY: 0,
+      tunnelTimer: 0,
       previousFrame: 0,
       targetTileX: 0,
       targetTileY: 0,
@@ -1135,12 +1141,13 @@ function setToPlay() {
       deathTimer: 0,
     },
     {
-      positionX: 44,
+      positionX: 43,
       positionY: 34,
       // positionX: 33,
       // positionY: 34,
       previousPositionX: 0,
       previousPositionY: 0,
+      tunnelTimer: 0,
       previousFrame: 0,
       targetTileX: 0,
       targetTileY: 0,
@@ -1161,6 +1168,7 @@ function setToPlay() {
       // positionY: 34,
       previousPositionX: 0,
       previousPositionY: 0,
+      tunnelTimer: 0,
       previousFrame: 0,
       targetTileX: 0,
       targetTileY: 0,
@@ -1581,988 +1589,28 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
   var tileRightDistance = 1000;
   var tileDownDistance = 1000;
 
-  switch (nameIndex) {
-    case ENEMY_INDEX_BLINKY:
-      switch (gameGlobals.enemyMode) {
-        case ENEMY_MODE_SCATTER:
+  switch (gameGlobals.enemyMode) {
+    case ENEMY_MODE_SCATTER:
+      // determine targetTile
+      switch (nameIndex) {
+        case ENEMY_INDEX_BLINKY:
           enemy.targetTileX = 61;
           enemy.targetTileY = 1;
-
-          switch (enemy.whichWay) {
-            case "left":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              //tileRight
-              //tileRightFrame = ghosts never volumtarily reverse direction
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileDownDistance &&
-                tileUpDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileLeftDistance <= tileUpDistance &&
-                tileLeftDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileDownDistance <= tileLeftDistance &&
-                tileDownDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "down";
-              }
-              // console.log(
-              //   "enemy.left, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            case "up":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              //tileDown
-              //tileDownFrame = ghosts never volumtarily reverse direction
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileRightDistance &&
-                tileUpDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileLeftDistance <= tileUpDistance &&
-                tileLeftDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileRightDistance <= tileLeftDistance &&
-                tileRightDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-              // console.log(
-              //   "enemy.up, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance
-              // );
-              break;
-
-            case "right":
-              nextTile = [enemy.positionY, enemy.positionX];
-              //tileLeft
-              //tileLeftFrame = ghosts never volumtarily reverse direction
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileRightDistance &&
-                tileUpDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileDownDistance <= tileUpDistance &&
-                tileDownDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "down";
-              } else if (
-                tileRightDistance <= tileDownDistance &&
-                tileRightDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-              // console.log(
-              //   "enemy.right, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            case "down":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              //tileUp
-              //tileUpFrame = ghosts never volumtarily reverse direction
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileLeftDistance <= tileRightDistance &&
-                tileLeftDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileDownDistance <= tileLeftDistance &&
-                tileDownDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "down";
-              } else if (
-                tileRightDistance <= tileDownDistance &&
-                tileRightDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-
-              // console.log(
-              //   "enemy.down, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            default:
-              break;
-          }
-
           break;
 
-        case ENEMY_MODE_CHASE:
-          enemy.targetTileX = player.positionX;
-          enemy.targetTileY = player.positionY;
-
-          break;
-
-        case ENEMY_MODE_FRIGHTENED:
-          switch (enemy.whichWay) {
-            case "left":
-              break;
-            case "right":
-              break;
-            case "up":
-              break;
-            case "down":
-              break;
-
-            default:
-              break;
-          }
-
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case ENEMY_INDEX_PINKY:
-      switch (gameGlobals.enemyMode) {
-        case ENEMY_MODE_SCATTER:
+        case ENEMY_INDEX_PINKY:
           enemy.targetTileX = 5;
           enemy.targetTileY = 1;
-
-          switch (enemy.whichWay) {
-            case "left":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              //tileRight
-              //tileRightFrame = ghosts never volumtarily reverse direction
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileDownDistance &&
-                tileUpDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileLeftDistance <= tileUpDistance &&
-                tileLeftDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileDownDistance <= tileLeftDistance &&
-                tileDownDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "down";
-              }
-              // console.log(
-              //   "enemy.left, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            case "up":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              //tileDown
-              //tileDownFrame = ghosts never volumtarily reverse direction
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileRightDistance &&
-                tileUpDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileLeftDistance <= tileUpDistance &&
-                tileLeftDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileRightDistance <= tileLeftDistance &&
-                tileRightDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-              // console.log(
-              //   "enemy.up, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance
-              // );
-              break;
-
-            case "right":
-              nextTile = [enemy.positionY, enemy.positionX];
-              //tileLeft
-              //tileLeftFrame = ghosts never volumtarily reverse direction
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileRightDistance &&
-                tileUpDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileDownDistance <= tileUpDistance &&
-                tileDownDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "down";
-              } else if (
-                tileRightDistance <= tileDownDistance &&
-                tileRightDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-              // console.log(
-              //   "enemy.right, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            case "down":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              //tileUp
-              //tileUpFrame = ghosts never volumtarily reverse direction
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileLeftDistance <= tileRightDistance &&
-                tileLeftDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileDownDistance <= tileLeftDistance &&
-                tileDownDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "down";
-              } else if (
-                tileRightDistance <= tileDownDistance &&
-                tileRightDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-
-              // console.log(
-              //   "enemy.down, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            default:
-              break;
-          }
-
           break;
 
-        case ENEMY_MODE_CHASE:
-          switch (enemy.whichWay) {
-            case "left":
-              break;
-            case "right":
-              break;
-            case "up":
-              break;
-            case "down":
-              break;
-
-            default:
-              break;
-          }
-
-          break;
-
-        case ENEMY_MODE_FRIGHTENED:
-          switch (enemy.whichWay) {
-            case "left":
-              break;
-            case "right":
-              break;
-            case "up":
-              break;
-            case "down":
-              break;
-
-            default:
-              break;
-          }
-
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case ENEMY_INDEX_INKY:
-      switch (gameGlobals.enemyMode) {
-        case ENEMY_MODE_SCATTER:
+        case ENEMY_INDEX_INKY:
           enemy.targetTileX = 66;
           enemy.targetTileY = 73;
-
-          switch (enemy.whichWay) {
-            case "left":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              //tileRight
-              //tileRightFrame = ghosts never volumtarily reverse direction
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileDownDistance &&
-                tileUpDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileLeftDistance <= tileUpDistance &&
-                tileLeftDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileDownDistance <= tileLeftDistance &&
-                tileDownDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "down";
-              }
-              // console.log(
-              //   "enemy.left, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            case "up":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              //tileDown
-              //tileDownFrame = ghosts never volumtarily reverse direction
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileRightDistance &&
-                tileUpDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileLeftDistance <= tileUpDistance &&
-                tileLeftDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileRightDistance <= tileLeftDistance &&
-                tileRightDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-              // console.log(
-              //   "enemy.up, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance
-              // );
-              break;
-
-            case "right":
-              nextTile = [enemy.positionY, enemy.positionX];
-              //tileLeft
-              //tileLeftFrame = ghosts never volumtarily reverse direction
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileRightDistance &&
-                tileUpDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileDownDistance <= tileUpDistance &&
-                tileDownDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "down";
-              } else if (
-                tileRightDistance <= tileDownDistance &&
-                tileRightDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-              // console.log(
-              //   "enemy.right, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            case "down":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              //tileUp
-              //tileUpFrame = ghosts never volumtarily reverse direction
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileLeftDistance <= tileRightDistance &&
-                tileLeftDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileDownDistance <= tileLeftDistance &&
-                tileDownDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "down";
-              } else if (
-                tileRightDistance <= tileDownDistance &&
-                tileRightDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-
-              // console.log(
-              //   "enemy.down, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            default:
-              break;
-          }
-
           break;
 
-        case ENEMY_MODE_CHASE:
-          switch (enemy.whichWay) {
-            case "left":
-              break;
-            case "right":
-              break;
-            case "up":
-              break;
-            case "down":
-              break;
-
-            default:
-              break;
-          }
-
-          break;
-
-        case ENEMY_MODE_FRIGHTENED:
-          switch (enemy.whichWay) {
-            case "left":
-              break;
-            case "right":
-              break;
-            case "up":
-              break;
-            case "down":
-              break;
-
-            default:
-              break;
-          }
-
+        case ENEMY_INDEX_CLYDE:
+          enemy.targetTileX = 0;
+          enemy.targetTileY = 73;
           break;
 
         default:
@@ -2570,328 +1618,333 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
       }
       break;
 
-    case ENEMY_INDEX_CLYDE:
-      switch (gameGlobals.enemyMode) {
-        case ENEMY_MODE_SCATTER:
-          enemy.targetTileX = 0;
+    case ENEMY_MODE_CHASE:
+      // determine targetTile
+      switch (nameIndex) {
+        case ENEMY_INDEX_BLINKY:
+          // when 20/30/40 dots remain in level (& no ghosts in home), his scatter mode(s) target tile upper-left -> PM location
+          // enemy.targetTileX = player.positionX;
+          // enemy.targetTileY = player.positionY;
+
+          // temp
+          enemy.targetTileX = 61;
+          enemy.targetTileY = 1;
+          break;
+
+        case ENEMY_INDEX_PINKY:
+          // target tile is always 4 tiles in front of PM
+          switch (player.whichWay) {
+            case "left":
+              enemy.targetTileX = player.positionX - 4;
+              enemy.targetTileY = player.positionY;
+              break;
+            case "right":
+              enemy.targetTileX = player.positionX + 4;
+              enemy.targetTileY = player.positionY;
+              break;
+            case "up":
+              enemy.targetTileX = player.positionX;
+              enemy.targetTileY = player.positionY - 4;
+              break;
+            case "down":
+              enemy.targetTileX = player.positionX;
+              enemy.targetTileY = player.positionY + 4;
+              break;
+
+            default:
+              break;
+          }
+
+          // temp
+          enemy.targetTileX = 5;
+          enemy.targetTileY = 1;
+          break;
+
+        case ENEMY_INDEX_INKY:
+          // target tile is complex, relies on PM  & Blinky
+          // find target tile 2 ahead of PM, draw line from Blinky to that target, double the line, that is the new target tile
+          var targetTilePlayerX, targetTilePlayerY;
+          var targetTileBlinkyX, targetTileBlinkyY;
+          switch (player.whichWay) {
+            case "left":
+              targetTilePlayerX = player.positionX - 2;
+              targetTilePlayerY = player.positionY;
+              break;
+            case "right":
+              targetTilePlayerX = player.positionX + 2;
+              targetTilePlayerY = player.positionY;
+              break;
+            case "up":
+              targetTilePlayerX = player.positionX;
+              targetTilePlayerY = player.positionY - 2;
+              break;
+            case "down":
+              targetTilePlayerX = player.positionX;
+              targetTilePlayerY = player.positionY + 2;
+              break;
+
+            default:
+              break;
+          }
+          targetTileBlinkyX = enemies[0].positionX;
+          targetTileBlinkyY = enemies[0].positionY;
+          enemy.targetTileX =
+            targetTileBlinkyX +
+            Math.abs(targetTileBlinkyX - targetTilePlayerX) * 2;
+          enemy.targetTileY =
+            targetTileBlinkyY +
+            Math.abs(targetTileBlinkyY - targetTilePlayerY) * 2;
+
+          // temp
+          enemy.targetTileX = 66;
           enemy.targetTileY = 73;
-
-          switch (enemy.whichWay) {
-            case "left":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              //tileRight
-              //tileRightFrame = ghosts never volumtarily reverse direction
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileDownDistance &&
-                tileUpDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileLeftDistance <= tileUpDistance &&
-                tileLeftDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileDownDistance <= tileLeftDistance &&
-                tileDownDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "down";
-              }
-              // console.log(
-              //   "enemy.left, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            case "up":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              //tileDown
-              //tileDownFrame = ghosts never volumtarily reverse direction
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileRightDistance &&
-                tileUpDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileLeftDistance <= tileUpDistance &&
-                tileLeftDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileRightDistance <= tileLeftDistance &&
-                tileRightDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-              // console.log(
-              //   "enemy.up, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance
-              // );
-              break;
-
-            case "right":
-              nextTile = [enemy.positionY, enemy.positionX];
-              //tileLeft
-              //tileLeftFrame = ghosts never volumtarily reverse direction
-              tileUp = [nextTile[0] - 1, nextTile[1]];
-              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileUpFrame != WALL_FRAME) {
-                tileUpDistance = parseFloat(
-                  distanceFromTarget(enemy, tileUp).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileUpDistance <= tileRightDistance &&
-                tileUpDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "up";
-              } else if (
-                tileDownDistance <= tileUpDistance &&
-                tileDownDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "down";
-              } else if (
-                tileRightDistance <= tileDownDistance &&
-                tileRightDistance <= tileUpDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-              // console.log(
-              //   "enemy.right, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tUpFrm: ",
-              //   tileUpFrame,
-              //   "; tUpDist: ",
-              //   tileUpDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            case "down":
-              nextTile = [enemy.positionY, enemy.positionX];
-              tileLeft = [nextTile[0], nextTile[1] - 1];
-              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
-              //tileUp
-              //tileUpFrame = ghosts never volumtarily reverse direction
-              tileRight = [nextTile[0], nextTile[1] + 1];
-              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
-              tileDown = [nextTile[0] + 1, nextTile[1]];
-              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
-
-              // calculate distances between target and potential next tiles
-              if (tileLeftFrame != WALL_FRAME) {
-                tileLeftDistance = parseFloat(
-                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
-                );
-              }
-              if (tileRightFrame != WALL_FRAME) {
-                tileRightDistance = parseFloat(
-                  distanceFromTarget(enemy, tileRight).toPrecision(4)
-                );
-              }
-              if (tileDownFrame != WALL_FRAME) {
-                tileDownDistance = parseFloat(
-                  distanceFromTarget(enemy, tileDown).toPrecision(4)
-                );
-              }
-
-              // determine the best direction
-              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
-              if (
-                tileLeftDistance <= tileRightDistance &&
-                tileLeftDistance <= tileDownDistance
-              ) {
-                enemy.nextDirection = "left";
-              } else if (
-                tileDownDistance <= tileLeftDistance &&
-                tileDownDistance <= tileRightDistance
-              ) {
-                enemy.nextDirection = "down";
-              } else if (
-                tileRightDistance <= tileDownDistance &&
-                tileRightDistance <= tileLeftDistance
-              ) {
-                enemy.nextDirection = "right";
-              }
-
-              // console.log(
-              //   "enemy.down, position: ",
-              //   enemy.positionX,
-              //   ",",
-              //   enemy.positionY,
-              //   "nextTile: ",
-              //   nextTile,
-              //   "; nextDirection: ",
-              //   enemy.nextDirection,
-              //   "; tLtFrm: ",
-              //   tileLeftFrame,
-              //   "; tLtDist: ",
-              //   tileLeftDistance,
-              //   "; tRtFrm: ",
-              //   tileRightFrame,
-              //   "; tRtDist: ",
-              //   tileRightDistance,
-              //   "; tDnFrm: ",
-              //   tileDownFrame,
-              //   "; tDnDist: ",
-              //   tileDownDistance
-              // );
-              break;
-
-            default:
-              break;
-          }
-
           break;
 
-        case ENEMY_MODE_CHASE:
-          switch (enemy.whichWay) {
-            case "left":
-              break;
-            case "right":
-              break;
-            case "up":
-              break;
-            case "down":
-              break;
-
-            default:
-              break;
+        case ENEMY_INDEX_CLYDE:
+          // when more than eight tiles away from PM, target tile is PM
+          // < 8 he switches to scatter mode until >8 away from PM, switches back
+          enemy.targetTileX = player.positionX;
+          enemy.targetTileY = player.positionY;
+          const clydeTile = [
+            enemies[ENEMY_INDEX_CLYDE].positionY,
+            enemy.positionX,
+          ];
+          const clydeDistanceFromPlayer = parseFloat(
+            distanceFromTarget(
+              enemies[ENEMY_INDEX_CLYDE],
+              clydeTile
+            ).toPrecision(4)
+          );
+          if (clydeDistanceFromPlayer <= 8) {
+            enemy.targetTileX = 0;
+            enemy.targetTileY = 73;
           }
-
-          break;
-
-        case ENEMY_MODE_FRIGHTENED:
           break;
 
         default:
           break;
+      }
+
+      break;
+
+    case ENEMY_MODE_FRIGHTENED:
+      switch (enemy.whichWay) {
+        case "left":
+          break;
+        case "right":
+          break;
+        case "up":
+          break;
+        case "down":
+          break;
+
+        default:
+          break;
+      } // switch whichWay
+
+      break;
+
+    default:
+      break;
+  } // switch enemyMode
+
+  // use targetTile to calculate new direction
+  switch (enemy.whichWay) {
+    case "left":
+      nextTile = [enemy.positionY, enemy.positionX];
+      tileLeft = [nextTile[0], nextTile[1] - 1];
+      tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+      tileUp = [nextTile[0] - 1, nextTile[1]];
+      tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+      //tileRight
+      //tileRightFrame = ghosts never volumtarily reverse direction
+      tileDown = [nextTile[0] + 1, nextTile[1]];
+      tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+      // calculate distances between target and potential next tiles
+      if (tileLeftFrame != WALL_FRAME) {
+        tileLeftDistance = parseFloat(
+          distanceFromTarget(enemy, tileLeft).toPrecision(4)
+        );
+      }
+      if (tileUpFrame != WALL_FRAME) {
+        tileUpDistance = parseFloat(
+          distanceFromTarget(enemy, tileUp).toPrecision(4)
+        );
+      }
+      if (tileDownFrame != WALL_FRAME) {
+        tileDownDistance = parseFloat(
+          distanceFromTarget(enemy, tileDown).toPrecision(4)
+        );
+      }
+
+      // determine the best direction
+      // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+      if (
+        tileUpDistance <= tileDownDistance &&
+        tileUpDistance <= tileLeftDistance
+      ) {
+        enemy.nextDirection = "up";
+      } else if (
+        tileLeftDistance <= tileUpDistance &&
+        tileLeftDistance <= tileDownDistance
+      ) {
+        enemy.nextDirection = "left";
+      } else if (
+        tileDownDistance <= tileLeftDistance &&
+        tileDownDistance <= tileUpDistance
+      ) {
+        enemy.nextDirection = "down";
+      }
+      break;
+
+    case "up":
+      nextTile = [enemy.positionY, enemy.positionX];
+      tileLeft = [nextTile[0], nextTile[1] - 1];
+      tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+      tileUp = [nextTile[0] - 1, nextTile[1]];
+      tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+      tileRight = [nextTile[0], nextTile[1] + 1];
+      tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+      //tileDown
+      //tileDownFrame = ghosts never volumtarily reverse direction
+
+      // calculate distances between target and potential next tiles
+      if (tileLeftFrame != WALL_FRAME) {
+        tileLeftDistance = parseFloat(
+          distanceFromTarget(enemy, tileLeft).toPrecision(4)
+        );
+      }
+      if (tileUpFrame != WALL_FRAME) {
+        tileUpDistance = parseFloat(
+          distanceFromTarget(enemy, tileUp).toPrecision(4)
+        );
+      }
+      if (tileRightFrame != WALL_FRAME) {
+        tileRightDistance = parseFloat(
+          distanceFromTarget(enemy, tileRight).toPrecision(4)
+        );
+      }
+
+      // determine the best direction
+      // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+      if (
+        tileUpDistance <= tileRightDistance &&
+        tileUpDistance <= tileLeftDistance
+      ) {
+        enemy.nextDirection = "up";
+      } else if (
+        tileLeftDistance <= tileUpDistance &&
+        tileLeftDistance <= tileRightDistance
+      ) {
+        enemy.nextDirection = "left";
+      } else if (
+        tileRightDistance <= tileLeftDistance &&
+        tileRightDistance <= tileUpDistance
+      ) {
+        enemy.nextDirection = "right";
+      }
+      break;
+
+    case "right":
+      nextTile = [enemy.positionY, enemy.positionX];
+      //tileLeft
+      //tileLeftFrame = ghosts never volumtarily reverse direction
+      tileUp = [nextTile[0] - 1, nextTile[1]];
+      tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+      tileRight = [nextTile[0], nextTile[1] + 1];
+      tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+      tileDown = [nextTile[0] + 1, nextTile[1]];
+      tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+      // calculate distances between target and potential next tiles
+      if (tileUpFrame != WALL_FRAME) {
+        tileUpDistance = parseFloat(
+          distanceFromTarget(enemy, tileUp).toPrecision(4)
+        );
+      }
+      if (tileRightFrame != WALL_FRAME) {
+        tileRightDistance = parseFloat(
+          distanceFromTarget(enemy, tileRight).toPrecision(4)
+        );
+      }
+      if (tileDownFrame != WALL_FRAME) {
+        tileDownDistance = parseFloat(
+          distanceFromTarget(enemy, tileDown).toPrecision(4)
+        );
+      }
+
+      // determine the best direction
+      // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+      if (
+        tileUpDistance <= tileRightDistance &&
+        tileUpDistance <= tileDownDistance
+      ) {
+        enemy.nextDirection = "up";
+      } else if (
+        tileDownDistance <= tileUpDistance &&
+        tileDownDistance <= tileRightDistance
+      ) {
+        enemy.nextDirection = "down";
+      } else if (
+        tileRightDistance <= tileDownDistance &&
+        tileRightDistance <= tileUpDistance
+      ) {
+        enemy.nextDirection = "right";
+      }
+      break;
+
+    case "down":
+      nextTile = [enemy.positionY, enemy.positionX];
+      tileLeft = [nextTile[0], nextTile[1] - 1];
+      tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+      //tileUp
+      //tileUpFrame = ghosts never volumtarily reverse direction
+      tileRight = [nextTile[0], nextTile[1] + 1];
+      tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+      tileDown = [nextTile[0] + 1, nextTile[1]];
+      tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+      // calculate distances between target and potential next tiles
+      if (tileLeftFrame != WALL_FRAME) {
+        tileLeftDistance = parseFloat(
+          distanceFromTarget(enemy, tileLeft).toPrecision(4)
+        );
+      }
+      if (tileRightFrame != WALL_FRAME) {
+        tileRightDistance = parseFloat(
+          distanceFromTarget(enemy, tileRight).toPrecision(4)
+        );
+      }
+      if (tileDownFrame != WALL_FRAME) {
+        tileDownDistance = parseFloat(
+          distanceFromTarget(enemy, tileDown).toPrecision(4)
+        );
+      }
+
+      // determine the best direction
+      // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+      if (
+        tileLeftDistance <= tileRightDistance &&
+        tileLeftDistance <= tileDownDistance
+      ) {
+        enemy.nextDirection = "left";
+      } else if (
+        tileDownDistance <= tileLeftDistance &&
+        tileDownDistance <= tileRightDistance
+      ) {
+        enemy.nextDirection = "down";
+      } else if (
+        tileRightDistance <= tileDownDistance &&
+        tileRightDistance <= tileLeftDistance
+      ) {
+        enemy.nextDirection = "right";
       }
       break;
 
     default:
       break;
-  }
+  } // switch whichWay
 }
 
 function enemiesUpdate() {
@@ -2902,35 +1955,48 @@ function enemiesUpdate() {
     enemy.previousPositionY = enemy.positionY;
     if (enemy.moving) {
       // move enemy in the pre-determined (from last frame) direction
-      switch (enemy.nextDirection) {
-        case "left":
-          enemy.whichWay = "left";
-          enemy.positionX -= 1;
-          break;
+      if (enemy.tunnelTimer == 0) {
+        switch (enemy.nextDirection) {
+          case "left":
+            enemy.whichWay = "left";
+            enemy.positionX -= 1;
+            break;
 
-        case "right":
-          enemy.whichWay = "right";
-          enemy.positionX += 1;
-          break;
+          case "right":
+            enemy.whichWay = "right";
+            enemy.positionX += 1;
+            break;
 
-        case "up":
-          enemy.whichWay = "up";
-          enemy.positionY -= 1;
-          break;
+          case "up":
+            enemy.whichWay = "up";
+            enemy.positionY -= 1;
+            break;
 
-        case "down":
-          enemy.whichWay = "down";
-          enemy.positionY += 1;
-          break;
+          case "down":
+            enemy.whichWay = "down";
+            enemy.positionY += 1;
+            break;
 
-        default:
-          FileMaker.PerformScriptWithOption(
-            "Console ( data ) 2",
-            "Error for enemyMoving; default case - nextDirection:" +
-              enemy.nextDirection,
-            0
-          );
-      } // switch
+          default:
+            FileMaker.PerformScriptWithOption(
+              "Console ( data ) 2",
+              "Error for enemyMoving; default case - nextDirection:" +
+                enemy.nextDirection,
+              0
+            );
+        } // switch
+        // wrap-around when crossing either side (tunnel)
+        if (enemy.positionX < 1) {
+          enemy.positionX = 65;
+          enemy.previousPositionX = 1;
+        }
+        if (enemy.positionX > 65) {
+          enemy.positionX = 1;
+          enemy.previousPositionX = 65;
+        }
+        // pre-determine next direction using dossier A.I.
+        enemiesNextMoveUsingDossierAI(enemy, index);
+      } // if tunnelTimer
 
       // player collision test
       if (
@@ -2945,11 +2011,19 @@ function enemiesUpdate() {
           enemies[index].moving = false;
         }
       }
+    } // if moving
 
-      // pre-determine next direction using dossier A.I.
-      enemiesNextMoveUsingDossierAI(enemy, index);
+    // tunnel speed reduction (skip every other move/frame)
+    if (enemy.tunnelTimer > 0) {
+      enemy.tunnelTimer = 0;
+    } else if (enemy.positionY == 34 && enemy.positionX < 14) {
+      // enemy slows down
+      enemy.tunnelTimer += 1;
+    } else if (enemy.positionY == 34 && enemy.positionX > 51) {
+      // enemy slows down
+      enemy.tunnelTimer += 1;
     }
-  }
+  } // for
 }
 
 // - - - MAIN GAME LOOP - - -
