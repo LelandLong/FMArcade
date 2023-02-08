@@ -11,7 +11,6 @@ var gameGlobals = {
   levelIndex: 0,
   levelActive: false,
   levelPelletCount: 0,
-  scaredTimer: 0,
   preparingTimer: 0,
   levelCompletedTimer: 0,
   levelCompletedToggle: false,
@@ -21,9 +20,11 @@ var gameGlobals = {
   fruitTimer: 0,
   fruitScore: "",
   fruitScoreTimer: 0,
-  scaredTimer: 0,
   blinkTimer: 3,
   blinkFrame: 31,
+  enemyMode: 0,
+  scatterTimer: 0,
+  chaseTimer: 0,
 };
 
 // animation frame pattern for player
@@ -40,8 +41,8 @@ const ENEMY_FRAME_LEFT = 10;
 const ENEMY_FRAME_RIGHT = 11;
 const ENEMY_FRAME_UP = 12;
 const ENEMY_FRAME_DOWN = 13;
-const ENEMY_FRAME_SCARED = 26;
-const ENEMY_FRAME_SCAREDALT = 27;
+const ENEMY_FRAME_FRIGHTENED = 26;
+const ENEMY_FRAME_FRIGHTENEDALT = 27;
 const PELLET_FRAME = 30;
 const ENERGIZER_FRAME = 31;
 const ENERGIZERALT_FRAME = 32; // empty graphic (blinking)
@@ -74,8 +75,8 @@ const LEVELCOMPLETED_TIMER = 39;
 const LEVELPREPARING_TIMER = 15;
 const FRUIT_TIMER = Math.trunc(10000 / gameGlobals.timerDuration); // 10 secs
 const FRUIT_SCORE_TIMER = 30;
-const ENEMY_SCARED_TIMER = Math.trunc(8000 / gameGlobals.timerDuration); // 8 secs;
-const ENEMY_SCARED_HALFTIMER = Math.trunc(ENEMY_SCARED_TIMER / 2); // 4 secs;
+const ENEMY_FRIGHTENED_TIMER = Math.trunc(8000 / gameGlobals.timerDuration); // 8 secs;
+const ENEMY_FRIGHTENED_HALFTIMER = Math.trunc(ENEMY_FRIGHTENED_TIMER / 2); // 4 secs;
 const BLINK_TIMER = 3;
 
 // count of pellets
@@ -84,6 +85,15 @@ const PELLET_COUNT = 280;
 // fruit
 const FRUIT_ROW = 41;
 const FRUIT_COLUMN = 33;
+
+// enemy A.I.
+const ENEMY_INDEX_BLINKY = 0;
+const ENEMY_INDEX_PINKY = 1;
+const ENEMY_INDEX_INKY = 2;
+const ENEMY_INDEX_CLYDE = 3;
+const ENEMY_MODE_SCATTER = 0;
+const ENEMY_MODE_CHASE = 1;
+const ENEMY_MODE_FRIGHTENED = 2;
 
 // screen bitmap; initialize empty array
 const columns = 70;
@@ -570,12 +580,15 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
-    previousMoveBranched: false,
-    whichWay: "left",
+    previousFrame: 0,
+    targetTileX: 0,
+    targetTileY: 0,
+    whichWay: "",
+    nextDirection: "",
     preparing: true,
     atHome: false,
-    scared: false,
-    scaredFrame: 0,
+    frightened: false,
+    frightenedFrame: 0,
     killed: false,
     deathTimer: 0,
   },
@@ -584,12 +597,15 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
-    previousMoveBranched: false,
-    whichWay: "up",
+    previousFrame: 0,
+    targetTileX: 0,
+    targetTileY: 0,
+    whichWay: "",
+    nextDirection: "",
     preparing: true,
     atHome: false,
-    scared: false,
-    scaredFrame: 0,
+    frightened: false,
+    frightenedFrame: 0,
     killed: false,
     deathTimer: 0,
   },
@@ -598,12 +614,15 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
-    previousMoveBranched: false,
-    whichWay: "down",
+    previousFrame: 0,
+    targetTileX: 0,
+    targetTileY: 0,
+    whichWay: "",
+    nextDirection: "",
     preparing: true,
     atHome: false,
-    scared: false,
-    scaredFrame: 0,
+    frightened: false,
+    frightenedFrame: 0,
     killed: false,
     deathTimer: 0,
   },
@@ -612,12 +631,15 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
-    previousMoveBranched: false,
-    whichWay: "up",
+    previousFrame: 0,
+    targetTileX: 0,
+    targetTileY: 0,
+    whichWay: "",
+    nextDirection: "",
     preparing: true,
     atHome: false,
-    scared: false,
-    scaredFrame: 0,
+    frightened: false,
+    frightenedFrame: 0,
     killed: false,
     deathTimer: 0,
   },
@@ -647,17 +669,18 @@ $(document).keydown(function (e) {
   var keys = new Object();
   keys.whichKey = e.code;
   keys.keyCode = e.keyCode;
+  keyRouting(keys.whichKey, keys.keyCode);
 
-  // ignore if same as last key press captured
-  if (gameGlobals.lastKey != e.keyCode) {
-    gameGlobals.lastKey = e.keyCode;
-    // FileMaker.PerformScriptWithOption(
-    //   "Keyboard ( data ) 2",
-    //   JSON.stringify(keys),
-    //   0
-    // );
-    keyRouting(keys.whichKey, keys.keyCode);
-  }
+  //   // ignore if same as last key press captured
+  //   if (gameGlobals.lastKey != e.keyCode) {
+  //     gameGlobals.lastKey = e.keyCode;
+  //     // FileMaker.PerformScriptWithOption(
+  //     //   "Keyboard ( data ) 2",
+  //     //   JSON.stringify(keys),
+  //     //   0
+  //     // );
+  //     keyRouting(keys.whichKey, keys.keyCode);
+  //   }
 });
 
 // $(document).keyup(function (e) {
@@ -721,7 +744,7 @@ function keyRouting(whichKey, keyCode) {
       break;
 
     default:
-      console.log("keyRouting DEFAULT (no Mac keys)");
+      console.log("keyRouting DEFAULT (no Mac keys), whichKey: ", whichKey);
       switch (keyCode) {
         // Windows - A key
         case 65:
@@ -867,6 +890,81 @@ function screenBitmapInitialRefresh() {
 // - - -
 
 function screenBitmapUpdate() {
+  // ENEMIES
+  for (let index = 0; index < enemies.length; index++) {
+    const enemy = enemies[index];
+
+    // remove previous enemy sprite position from bitmap; replace with empty or pellet or energizer
+    if (enemy.previousFrame == PELLET_FRAME) {
+      screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
+        PELLET_FRAME;
+    } else if (enemy.previousFrame == ENERGIZER_FRAME) {
+      screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
+        ENERGIZER_FRAME;
+    } else if (enemy.previousFrame == ENERGIZERALT_FRAME) {
+      screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
+        ENERGIZERALT_FRAME;
+    } else {
+      screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
+        EMPTY_FRAME;
+    }
+    // update previousFrame before moving sprite to new location
+    enemy.previousFrame = screenBitmap[enemy.positionY][enemy.positionX];
+
+    if (!enemy.preparing) {
+      // add current enemy sprite position to bitmap
+      if (enemy.frightened) {
+        if (gameGlobals.frightenedTimer < ENEMY_FRIGHTENED_HALFTIMER) {
+          // if timer is half fininshed, begin frightened icon "flashing"
+          if (gameGlobals.frightenedTimer % 3 == 0) {
+            // flash every 3rd frame
+            if (enemy.frightenedFrame == ENEMY_FRAME_FRIGHTENED) {
+              enemy.frightenedFrame = ENEMY_FRAME_FRIGHTENEDALT;
+            } else {
+              enemy.frightenedFrame = ENEMY_FRAME_FRIGHTENED;
+            }
+          }
+        } else {
+          enemy.frightenedFrame = ENEMY_FRAME_FRIGHTENED;
+        }
+        screenBitmap[enemy.positionY][enemy.positionX] = enemy.frightenedFrame;
+      } else {
+        switch (enemy.whichWay) {
+          case "left":
+            screenBitmap[enemy.positionY][enemy.positionX] =
+              ENEMY_FRAME_LEFT + index * 4;
+            break;
+
+          case "right":
+            screenBitmap[enemy.positionY][enemy.positionX] =
+              ENEMY_FRAME_RIGHT + index * 4;
+            break;
+
+          case "up":
+            screenBitmap[enemy.positionY][enemy.positionX] =
+              ENEMY_FRAME_UP + index * 4;
+            break;
+
+          case "down":
+            screenBitmap[enemy.positionY][enemy.positionX] =
+              ENEMY_FRAME_DOWN + index * 4;
+            break;
+
+          default:
+            FileMaker.PerformScriptWithOption(
+              "Console ( data ) 2",
+              "Error for screenBitmapUpdate ENEMY; default case - whichWay:" +
+                enemy.whichWay,
+              0
+            );
+        } // switch
+      } // if
+    } else {
+      screenBitmap[enemy.positionY][enemy.positionX] = EMPTY_FRAME;
+    } // if
+  } // for
+
+  // PLAYER
   // remove previous player sprite position from bitmap
   screenBitmap[player.previousPositionY][player.previousPositionX] =
     EMPTY_FRAME;
@@ -911,66 +1009,6 @@ function screenBitmapUpdate() {
         );
     } // switch
   } // if
-
-  for (let index = 0; index < enemies.length; index++) {
-    const enemy = enemies[index];
-
-    // remove previous enemy sprite position from bitmap
-    screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
-      EMPTY_FRAME;
-
-    if (!enemy.preparing) {
-      // add current enemy sprite position to bitmap
-      if (enemy.scared) {
-        if (gameGlobals.scaredTimer < ENEMY_SCARED_HALFTIMER) {
-          // if timer is half fininshed, begin scared icon "flashing"
-          if (gameGlobals.scaredTimer % 3 == 0) {
-            // flash every 3rd frame
-            if (enemy.scaredFrame == ENEMY_FRAME_SCARED) {
-              enemy.scaredFrame = ENEMY_FRAME_SCAREDALT;
-            } else {
-              enemy.scaredFrame = ENEMY_FRAME_SCARED;
-            }
-          }
-        } else {
-          enemy.scaredFrame = ENEMY_FRAME_SCARED;
-        }
-        screenBitmap[enemy.positionY][enemy.positionX] = enemy.scaredFrame;
-      } else {
-        switch (enemy.whichWay) {
-          case "left":
-            screenBitmap[enemy.positionY][enemy.positionX] =
-              ENEMY_FRAME_LEFT + index * 4;
-            break;
-
-          case "right":
-            screenBitmap[enemy.positionY][enemy.positionX] =
-              ENEMY_FRAME_RIGHT + index * 4;
-            break;
-
-          case "up":
-            screenBitmap[enemy.positionY][enemy.positionX] =
-              ENEMY_FRAME_UP + index * 4;
-            break;
-
-          case "down":
-            screenBitmap[enemy.positionY][enemy.positionX] =
-              ENEMY_FRAME_DOWN + index * 4;
-            break;
-
-          default:
-            FileMaker.PerformScriptWithOption(
-              "Console ( data ) 2",
-              "Error for screenBitmapUpdate ENEMY; default case - whichWay:" +
-                enemy.whichWay,
-              0
-            );
-        } // switch
-      } // if
-    } else {
-      screenBitmap[enemy.positionY][enemy.positionX] = EMPTY_FRAME;
-    } // if
-  } // for
 }
 
 // - - -
@@ -988,48 +1026,56 @@ function prepareForPlay() {
   player.lastKey = "left";
   player.dying = false;
 
+  enemies[0].previousPositionX = enemies[0].positionX;
+  enemies[0].previousPositionY = enemies[0].positionY;
   enemies[0].positionX = 0;
   enemies[0].positionY = 0;
-  enemies[0].previousMoveBranched = false;
   enemies[0].whichWay = "left";
+  enemies[0].nextDirection = "left";
   enemies[0].preparing = true;
   enemies[0].moving = false;
   enemies[0].atHome = false;
-  enemies[0].scared = false;
-  enemies[0].scaredFrame = 0;
+  enemies[0].frightened = false;
+  enemies[0].frightenedFrame = 0;
   enemies[0].deathTimer = 0;
 
+  enemies[1].previousPositionX = enemies[1].positionX;
+  enemies[1].previousPositionY = enemies[1].positionY;
   enemies[1].positionX = 0;
   enemies[1].positionY = 0;
-  enemies[1].previousMoveBranched = false;
   enemies[1].whichWay = "up";
+  enemies[1].nextDirection = "up";
   enemies[1].preparing = true;
   enemies[1].moving = false;
   enemies[1].atHome = false;
-  enemies[1].scared = false;
-  enemies[1].scaredFrame = 0;
+  enemies[1].frightened = false;
+  enemies[1].frightenedFrame = 0;
   enemies[1].deathTimer = 0;
 
+  enemies[2].previousPositionX = enemies[2].positionX;
+  enemies[2].previousPositionY = enemies[2].positionY;
   enemies[2].positionX = 0;
   enemies[2].positionY = 0;
-  enemies[2].previousMoveBranched = false;
   enemies[2].whichWay = "down";
+  enemies[2].nextDirection = "down";
   enemies[2].preparing = true;
   enemies[2].moving = false;
   enemies[2].atHome = false;
-  enemies[2].scared = false;
-  enemies[2].scaredFrame = 0;
+  enemies[2].frightened = false;
+  enemies[2].frightenedFrame = 0;
   enemies[2].deathTimer = 0;
 
+  enemies[3].previousPositionX = enemies[3].positionX;
+  enemies[3].previousPositionY = enemies[3].positionY;
   enemies[3].positionX = 0;
   enemies[3].positionY = 0;
-  enemies[3].previousMoveBranched = false;
   enemies[3].whichWay = "up";
+  enemies[3].nextDirection = "up";
   enemies[3].preparing = true;
   enemies[3].moving = false;
   enemies[3].atHome = false;
-  enemies[3].scared = false;
-  enemies[3].scaredFrame = 0;
+  enemies[3].frightened = false;
+  enemies[3].frightenedFrame = 0;
   enemies[3].deathTimer = 0;
 
   // UI
@@ -1055,58 +1101,76 @@ function setToPlay() {
       positionY: 27,
       previousPositionX: 0,
       previousPositionY: 0,
-      previousMoveBranched: false,
+      previousFrame: 0,
+      targetTileX: 0,
+      targetTileY: 0,
       whichWay: "left",
+      nextDirection: "left",
       preparing: false,
       moving: false,
       atHome: false,
-      scared: false,
-      scaredFrame: 0,
+      frightened: false,
+      frightenedFrame: 0,
       killed: false,
       deathTimer: 0,
     },
     {
-      positionX: 28,
+      positionX: 22,
       positionY: 34,
+      // positionX: 28,
+      // positionY: 34,
       previousPositionX: 0,
       previousPositionY: 0,
-      previousMoveBranched: false,
+      previousFrame: 0,
+      targetTileX: 0,
+      targetTileY: 0,
       whichWay: "up",
+      nextDirection: "up",
       preparing: false,
       moving: false,
       atHome: true,
-      scared: false,
-      scaredFrame: 0,
+      frightened: false,
+      frightenedFrame: 0,
+      killed: false,
+      deathTimer: 0,
+    },
+    {
+      positionX: 44,
+      positionY: 34,
+      // positionX: 33,
+      // positionY: 34,
+      previousPositionX: 0,
+      previousPositionY: 0,
+      previousFrame: 0,
+      targetTileX: 0,
+      targetTileY: 0,
+      whichWay: "down",
+      nextDirection: "down",
+      preparing: false,
+      moving: false,
+      atHome: true,
+      frightened: false,
+      frightenedFrame: 0,
       killed: false,
       deathTimer: 0,
     },
     {
       positionX: 33,
-      positionY: 34,
+      positionY: 41,
+      // positionX: 38,
+      // positionY: 34,
       previousPositionX: 0,
       previousPositionY: 0,
-      previousMoveBranched: false,
-      whichWay: "down",
+      previousFrame: 0,
+      targetTileX: 0,
+      targetTileY: 0,
+      whichWay: "right",
+      nextDirection: "right",
       preparing: false,
       moving: false,
       atHome: true,
-      scared: false,
-      scaredFrame: 0,
-      killed: false,
-      deathTimer: 0,
-    },
-    {
-      positionX: 38,
-      positionY: 34,
-      previousPositionX: 0,
-      previousPositionY: 0,
-      previousMoveBranched: false,
-      whichWay: "up",
-      preparing: false,
-      moving: false,
-      atHome: true,
-      scared: false,
-      scaredFrame: 0,
+      frightened: false,
+      frightenedFrame: 0,
       killed: false,
       deathTimer: 0,
     },
@@ -1122,6 +1186,7 @@ function startPlay() {
   // player ready
   player.moving = true;
 
+  // enemies[0].moving = true;
   for (let index = 0; index < enemies.length; index++) {
     enemies[index].moving = true;
   }
@@ -1332,8 +1397,10 @@ function playerUpdate() {
       player.positionX = 1;
       player.previousPositionX = 65;
     }
+  } // if
 
-    // collision detection
+  // collision detection
+  if (!player.dying) {
     if (screenBitmap[player.positionY][player.positionX] == PELLET_FRAME) {
       // pellets
       player.score += SCORING_PELLET;
@@ -1344,10 +1411,10 @@ function playerUpdate() {
       // energizers
       player.score += SCORING_ENERGIZER;
       for (let index = 0; index < enemies.length; index++) {
-        // enbemies become scared during timer
-        enemies[index].scared = true;
+        // enbemies become frightened during timer
+        enemies[index].frightened = true;
       }
-      gameGlobals.scaredTimer = ENEMY_SCARED_TIMER;
+      gameGlobals.frightenedTimer = ENEMY_FRIGHTENED_TIMER;
     } else if (
       screenBitmap[player.positionY][player.positionX] == CHERRY_FRAME
     ) {
@@ -1402,68 +1469,21 @@ function playerUpdate() {
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
     } else {
       // enemies
-      switch (player.whichWay) {
-        case "left":
-          const nextLeft = screenBitmap[player.positionY][player.positionX - 1];
-          if (nextLeft >= ENEMY_FRAME_LEFT && nextLeft < PELLET_FRAME) {
-            player.dying = true;
-            player.lives -= 1;
-            player.frameNo = 0;
-            player.moving = false;
-            for (let index = 0; index < enemies.length; index++) {
-              enemies[index].moving = false;
-            }
+      for (let index = 0; index < enemies.length; index++) {
+        const enemy = enemies[index];
+        if (
+          player.positionX == enemy.positionX &&
+          player.positionY == enemy.positionY
+        ) {
+          player.dying = true;
+          player.lives -= 1;
+          player.frameNo = 0;
+          player.moving = false;
+          for (let index = 0; index < enemies.length; index++) {
+            enemies[index].moving = false;
           }
-          break;
-
-        case "right":
-          const nextRight =
-            screenBitmap[player.positionY][player.positionX + 1];
-          if (nextRight >= ENEMY_FRAME_LEFT && nextRight < PELLET_FRAME) {
-            player.dying = true;
-            player.lives -= 1;
-            player.frameNo = 0;
-            player.moving = false;
-            for (let index = 0; index < enemies.length; index++) {
-              enemies[index].moving = false;
-            }
-          }
-          break;
-
-        case "up":
-          const nextUp = screenBitmap[player.positionY - 1][player.positionX];
-          if (nextUp >= ENEMY_FRAME_LEFT && nextUp < PELLET_FRAME) {
-            player.dying = true;
-            player.lives -= 1;
-            player.frameNo = 0;
-            player.moving = false;
-            for (let index = 0; index < enemies.length; index++) {
-              enemies[index].moving = false;
-            }
-          }
-          break;
-
-        case "down":
-          const nextDown = screenBitmap[player.positionY + 1][player.positionX];
-          if (nextDown >= ENEMY_FRAME_LEFT && nextDown < PELLET_FRAME) {
-            player.dying = true;
-            player.lives -= 1;
-            player.frameNo = 0;
-            player.moving = false;
-            for (let index = 0; index < enemies.length; index++) {
-              enemies[index].moving = false;
-            }
-          }
-          break;
-
-        default:
-          FileMaker.PerformScriptWithOption(
-            "Console ( data ) 2",
-            "Error for playerMoving; default case - whichWay:" +
-              player.whichWay,
-            0
-          );
-      } // switch
+        }
+      }
     } // if
   } // if
 }
@@ -1531,13 +1551,1403 @@ function playerWantsToMove(whichDirection) {
 
 // - - - ENEMIES - - -
 
+function distanceFromTarget(enemy, tile) {
+  var distance;
+  const startY = enemy.targetTileY;
+  const startX = enemy.targetTileX;
+  const endY = tile[0];
+  const endX = tile[1];
+
+  const lengthY = Math.abs(endY - startY);
+  const lengthX = Math.abs(endX - startX);
+
+  if (lengthX == 0) {
+    distance = lengthY;
+  } else if (lengthY == 0) {
+    distance = lengthX;
+  } else {
+    // Pathagoriam Therum
+    distance = Math.sqrt(Math.pow(lengthX, 2) + Math.pow(lengthY, 2));
+  }
+
+  return distance;
+}
+
+function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
+  var nextTile;
+  var tileLeft, tileUp, tileRight, tileDown;
+  var tileLeftDistance = 1000;
+  var tileUpDistance = 1000;
+  var tileRightDistance = 1000;
+  var tileDownDistance = 1000;
+
+  switch (nameIndex) {
+    case ENEMY_INDEX_BLINKY:
+      switch (gameGlobals.enemyMode) {
+        case ENEMY_MODE_SCATTER:
+          enemy.targetTileX = 61;
+          enemy.targetTileY = 1;
+
+          switch (enemy.whichWay) {
+            case "left":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              //tileRight
+              //tileRightFrame = ghosts never volumtarily reverse direction
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileDownDistance &&
+                tileUpDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileLeftDistance <= tileUpDistance &&
+                tileLeftDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileDownDistance <= tileLeftDistance &&
+                tileDownDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "down";
+              }
+              // console.log(
+              //   "enemy.left, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            case "up":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              //tileDown
+              //tileDownFrame = ghosts never volumtarily reverse direction
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileRightDistance &&
+                tileUpDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileLeftDistance <= tileUpDistance &&
+                tileLeftDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileRightDistance <= tileLeftDistance &&
+                tileRightDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+              // console.log(
+              //   "enemy.up, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance
+              // );
+              break;
+
+            case "right":
+              nextTile = [enemy.positionY, enemy.positionX];
+              //tileLeft
+              //tileLeftFrame = ghosts never volumtarily reverse direction
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileRightDistance &&
+                tileUpDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileDownDistance <= tileUpDistance &&
+                tileDownDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "down";
+              } else if (
+                tileRightDistance <= tileDownDistance &&
+                tileRightDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+              // console.log(
+              //   "enemy.right, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            case "down":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              //tileUp
+              //tileUpFrame = ghosts never volumtarily reverse direction
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileLeftDistance <= tileRightDistance &&
+                tileLeftDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileDownDistance <= tileLeftDistance &&
+                tileDownDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "down";
+              } else if (
+                tileRightDistance <= tileDownDistance &&
+                tileRightDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+
+              // console.log(
+              //   "enemy.down, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        case ENEMY_MODE_CHASE:
+          enemy.targetTileX = player.positionX;
+          enemy.targetTileY = player.positionY;
+
+          break;
+
+        case ENEMY_MODE_FRIGHTENED:
+          switch (enemy.whichWay) {
+            case "left":
+              break;
+            case "right":
+              break;
+            case "up":
+              break;
+            case "down":
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        default:
+          break;
+      }
+      break;
+
+    case ENEMY_INDEX_PINKY:
+      switch (gameGlobals.enemyMode) {
+        case ENEMY_MODE_SCATTER:
+          enemy.targetTileX = 5;
+          enemy.targetTileY = 1;
+
+          switch (enemy.whichWay) {
+            case "left":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              //tileRight
+              //tileRightFrame = ghosts never volumtarily reverse direction
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileDownDistance &&
+                tileUpDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileLeftDistance <= tileUpDistance &&
+                tileLeftDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileDownDistance <= tileLeftDistance &&
+                tileDownDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "down";
+              }
+              // console.log(
+              //   "enemy.left, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            case "up":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              //tileDown
+              //tileDownFrame = ghosts never volumtarily reverse direction
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileRightDistance &&
+                tileUpDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileLeftDistance <= tileUpDistance &&
+                tileLeftDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileRightDistance <= tileLeftDistance &&
+                tileRightDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+              // console.log(
+              //   "enemy.up, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance
+              // );
+              break;
+
+            case "right":
+              nextTile = [enemy.positionY, enemy.positionX];
+              //tileLeft
+              //tileLeftFrame = ghosts never volumtarily reverse direction
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileRightDistance &&
+                tileUpDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileDownDistance <= tileUpDistance &&
+                tileDownDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "down";
+              } else if (
+                tileRightDistance <= tileDownDistance &&
+                tileRightDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+              // console.log(
+              //   "enemy.right, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            case "down":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              //tileUp
+              //tileUpFrame = ghosts never volumtarily reverse direction
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileLeftDistance <= tileRightDistance &&
+                tileLeftDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileDownDistance <= tileLeftDistance &&
+                tileDownDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "down";
+              } else if (
+                tileRightDistance <= tileDownDistance &&
+                tileRightDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+
+              // console.log(
+              //   "enemy.down, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        case ENEMY_MODE_CHASE:
+          switch (enemy.whichWay) {
+            case "left":
+              break;
+            case "right":
+              break;
+            case "up":
+              break;
+            case "down":
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        case ENEMY_MODE_FRIGHTENED:
+          switch (enemy.whichWay) {
+            case "left":
+              break;
+            case "right":
+              break;
+            case "up":
+              break;
+            case "down":
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        default:
+          break;
+      }
+      break;
+
+    case ENEMY_INDEX_INKY:
+      switch (gameGlobals.enemyMode) {
+        case ENEMY_MODE_SCATTER:
+          enemy.targetTileX = 66;
+          enemy.targetTileY = 73;
+
+          switch (enemy.whichWay) {
+            case "left":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              //tileRight
+              //tileRightFrame = ghosts never volumtarily reverse direction
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileDownDistance &&
+                tileUpDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileLeftDistance <= tileUpDistance &&
+                tileLeftDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileDownDistance <= tileLeftDistance &&
+                tileDownDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "down";
+              }
+              // console.log(
+              //   "enemy.left, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            case "up":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              //tileDown
+              //tileDownFrame = ghosts never volumtarily reverse direction
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileRightDistance &&
+                tileUpDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileLeftDistance <= tileUpDistance &&
+                tileLeftDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileRightDistance <= tileLeftDistance &&
+                tileRightDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+              // console.log(
+              //   "enemy.up, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance
+              // );
+              break;
+
+            case "right":
+              nextTile = [enemy.positionY, enemy.positionX];
+              //tileLeft
+              //tileLeftFrame = ghosts never volumtarily reverse direction
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileRightDistance &&
+                tileUpDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileDownDistance <= tileUpDistance &&
+                tileDownDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "down";
+              } else if (
+                tileRightDistance <= tileDownDistance &&
+                tileRightDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+              // console.log(
+              //   "enemy.right, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            case "down":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              //tileUp
+              //tileUpFrame = ghosts never volumtarily reverse direction
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileLeftDistance <= tileRightDistance &&
+                tileLeftDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileDownDistance <= tileLeftDistance &&
+                tileDownDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "down";
+              } else if (
+                tileRightDistance <= tileDownDistance &&
+                tileRightDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+
+              // console.log(
+              //   "enemy.down, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        case ENEMY_MODE_CHASE:
+          switch (enemy.whichWay) {
+            case "left":
+              break;
+            case "right":
+              break;
+            case "up":
+              break;
+            case "down":
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        case ENEMY_MODE_FRIGHTENED:
+          switch (enemy.whichWay) {
+            case "left":
+              break;
+            case "right":
+              break;
+            case "up":
+              break;
+            case "down":
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        default:
+          break;
+      }
+      break;
+
+    case ENEMY_INDEX_CLYDE:
+      switch (gameGlobals.enemyMode) {
+        case ENEMY_MODE_SCATTER:
+          enemy.targetTileX = 0;
+          enemy.targetTileY = 73;
+
+          switch (enemy.whichWay) {
+            case "left":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              //tileRight
+              //tileRightFrame = ghosts never volumtarily reverse direction
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileDownDistance &&
+                tileUpDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileLeftDistance <= tileUpDistance &&
+                tileLeftDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileDownDistance <= tileLeftDistance &&
+                tileDownDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "down";
+              }
+              // console.log(
+              //   "enemy.left, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            case "up":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              //tileDown
+              //tileDownFrame = ghosts never volumtarily reverse direction
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileRightDistance &&
+                tileUpDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileLeftDistance <= tileUpDistance &&
+                tileLeftDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileRightDistance <= tileLeftDistance &&
+                tileRightDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+              // console.log(
+              //   "enemy.up, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance
+              // );
+              break;
+
+            case "right":
+              nextTile = [enemy.positionY, enemy.positionX];
+              //tileLeft
+              //tileLeftFrame = ghosts never volumtarily reverse direction
+              tileUp = [nextTile[0] - 1, nextTile[1]];
+              tileUpFrame = screenBitmap[tileUp[0]][tileUp[1]];
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileUpFrame != WALL_FRAME) {
+                tileUpDistance = parseFloat(
+                  distanceFromTarget(enemy, tileUp).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileUpDistance <= tileRightDistance &&
+                tileUpDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "up";
+              } else if (
+                tileDownDistance <= tileUpDistance &&
+                tileDownDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "down";
+              } else if (
+                tileRightDistance <= tileDownDistance &&
+                tileRightDistance <= tileUpDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+              // console.log(
+              //   "enemy.right, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tUpFrm: ",
+              //   tileUpFrame,
+              //   "; tUpDist: ",
+              //   tileUpDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            case "down":
+              nextTile = [enemy.positionY, enemy.positionX];
+              tileLeft = [nextTile[0], nextTile[1] - 1];
+              tileLeftFrame = screenBitmap[tileLeft[0]][tileLeft[1]];
+              //tileUp
+              //tileUpFrame = ghosts never volumtarily reverse direction
+              tileRight = [nextTile[0], nextTile[1] + 1];
+              tileRightFrame = screenBitmap[tileRight[0]][tileRight[1]];
+              tileDown = [nextTile[0] + 1, nextTile[1]];
+              tileDownFrame = screenBitmap[tileDown[0]][tileDown[1]];
+
+              // calculate distances between target and potential next tiles
+              if (tileLeftFrame != WALL_FRAME) {
+                tileLeftDistance = parseFloat(
+                  distanceFromTarget(enemy, tileLeft).toPrecision(4)
+                );
+              }
+              if (tileRightFrame != WALL_FRAME) {
+                tileRightDistance = parseFloat(
+                  distanceFromTarget(enemy, tileRight).toPrecision(4)
+                );
+              }
+              if (tileDownFrame != WALL_FRAME) {
+                tileDownDistance = parseFloat(
+                  distanceFromTarget(enemy, tileDown).toPrecision(4)
+                );
+              }
+
+              // determine the best direction
+              // dossier: To break the tie, the ghost prefers directions in this order: up, left, down, right
+              if (
+                tileLeftDistance <= tileRightDistance &&
+                tileLeftDistance <= tileDownDistance
+              ) {
+                enemy.nextDirection = "left";
+              } else if (
+                tileDownDistance <= tileLeftDistance &&
+                tileDownDistance <= tileRightDistance
+              ) {
+                enemy.nextDirection = "down";
+              } else if (
+                tileRightDistance <= tileDownDistance &&
+                tileRightDistance <= tileLeftDistance
+              ) {
+                enemy.nextDirection = "right";
+              }
+
+              // console.log(
+              //   "enemy.down, position: ",
+              //   enemy.positionX,
+              //   ",",
+              //   enemy.positionY,
+              //   "nextTile: ",
+              //   nextTile,
+              //   "; nextDirection: ",
+              //   enemy.nextDirection,
+              //   "; tLtFrm: ",
+              //   tileLeftFrame,
+              //   "; tLtDist: ",
+              //   tileLeftDistance,
+              //   "; tRtFrm: ",
+              //   tileRightFrame,
+              //   "; tRtDist: ",
+              //   tileRightDistance,
+              //   "; tDnFrm: ",
+              //   tileDownFrame,
+              //   "; tDnDist: ",
+              //   tileDownDistance
+              // );
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        case ENEMY_MODE_CHASE:
+          switch (enemy.whichWay) {
+            case "left":
+              break;
+            case "right":
+              break;
+            case "up":
+              break;
+            case "down":
+              break;
+
+            default:
+              break;
+          }
+
+          break;
+
+        case ENEMY_MODE_FRIGHTENED:
+          break;
+
+        default:
+          break;
+      }
+      break;
+
+    default:
+      break;
+  }
+}
+
 function enemiesUpdate() {
   for (let index = 0; index < enemies.length; index++) {
     const enemy = enemies[index];
+    // update previousPositions
+    enemy.previousPositionX = enemy.positionX;
+    enemy.previousPositionY = enemy.positionY;
     if (enemy.moving) {
-      // update previousPositions
-      enemy.previousPositionX = enemy.positionX;
-      enemy.previousPositionY = enemy.positionY;
+      // move enemy in the pre-determined (from last frame) direction
+      switch (enemy.nextDirection) {
+        case "left":
+          enemy.whichWay = "left";
+          enemy.positionX -= 1;
+          break;
+
+        case "right":
+          enemy.whichWay = "right";
+          enemy.positionX += 1;
+          break;
+
+        case "up":
+          enemy.whichWay = "up";
+          enemy.positionY -= 1;
+          break;
+
+        case "down":
+          enemy.whichWay = "down";
+          enemy.positionY += 1;
+          break;
+
+        default:
+          FileMaker.PerformScriptWithOption(
+            "Console ( data ) 2",
+            "Error for enemyMoving; default case - nextDirection:" +
+              enemy.nextDirection,
+            0
+          );
+      } // switch
+
+      // player collision test
+      if (
+        player.positionX == enemy.positionX &&
+        player.positionY == enemy.positionY
+      ) {
+        player.dying = true;
+        player.lives -= 1;
+        player.frameNo = 0;
+        player.moving = false;
+        for (let index = 0; index < enemies.length; index++) {
+          enemies[index].moving = false;
+        }
+      }
+
+      // pre-determine next direction using dossier A.I.
+      enemiesNextMoveUsingDossierAI(enemy, index);
     }
   }
 }
@@ -1546,8 +2956,8 @@ function enemiesUpdate() {
 
 function gameLoop() {
   // move sprites and update screenBitmap
-  playerUpdate();
   enemiesUpdate();
+  playerUpdate();
   screenBitmapUpdate();
 
   // handle extra life
@@ -1627,12 +3037,12 @@ function gameLoop() {
     }
   }
 
-  // handle scaredTimer
-  if (gameGlobals.scaredTimer > 0) {
-    gameGlobals.scaredTimer -= 1;
-    if (gameGlobals.scaredTimer == 0) {
+  // handle frightenedTimer
+  if (gameGlobals.frightenedTimer > 0) {
+    gameGlobals.frightenedTimer -= 1;
+    if (gameGlobals.frightenedTimer == 0) {
       for (let index = 0; index < enemies.length; index++) {
-        enemies[index].scared = false;
+        enemies[index].frightened = false;
       }
     }
   }
