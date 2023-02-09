@@ -22,7 +22,9 @@ var gameGlobals = {
   fruitScoreTimer: 0,
   blinkTimer: 3,
   blinkFrame: 31,
-  enemyMode: 1,
+  enemyMode: 0,
+  previousMode: 0,
+  modeStageIndex: 0,
   scatterTimer: 0,
   chaseTimer: 0,
 };
@@ -94,6 +96,17 @@ const ENEMY_INDEX_CLYDE = 3;
 const ENEMY_MODE_SCATTER = 0;
 const ENEMY_MODE_CHASE = 1;
 const ENEMY_MODE_FRIGHTENED = 2;
+
+// enemy modes
+const ENEMY_MODE_TIMERSTAGES_LVL1 = [
+  7000, 20000, 7000, 20000, 5000, 20000, 5000,
+];
+const ENEMY_MODE_TIMERSTAGES_LVL2 = [
+  7000, 20000, 7000, 20000, 5000, 1033000, 17,
+];
+const ENEMY_MODE_TIMERSTAGES_LVL5 = [
+  5000, 20000, 5000, 20000, 5000, 1037000, 17,
+];
 
 // screen bitmap; initialize empty array
 const columns = 70;
@@ -1239,6 +1252,12 @@ function prepareLevel() {
   gameGlobals.levelIndex += 1;
   gameGlobals.firstFruitFlag = false;
   gameGlobals.secondFruitFlag = false;
+  gameGlobals.enemyMode = ENEMY_MODE_SCATTER;
+  gameGlobals.modeStageIndex = 0;
+  gameGlobals.scatterTimer = Math.trunc(
+    ENEMY_MODE_TIMERSTAGES_LVL1[gameGlobals.modeStageIndex] /
+      gameGlobals.timerDuration
+  ); // secs
   // gameGlobals.levelPelletCount = PELLET_COUNT;
 
   // initialize screenBitmap by copying from template (multi-dimensional array)
@@ -1483,13 +1502,13 @@ function playerUpdate() {
           player.positionX == enemy.positionX &&
           player.positionY == enemy.positionY
         ) {
-          player.dying = true;
-          player.lives -= 1;
-          player.frameNo = 0;
-          player.moving = false;
-          for (let index = 0; index < enemies.length; index++) {
-            enemies[index].moving = false;
-          }
+          // player.dying = true;
+          // player.lives -= 1;
+          // player.frameNo = 0;
+          // player.moving = false;
+          // for (let index = 0; index < enemies.length; index++) {
+          //   enemies[index].moving = false;
+          // }
         }
       }
     } // if
@@ -1623,12 +1642,12 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
       switch (nameIndex) {
         case ENEMY_INDEX_BLINKY:
           // when 20/30/40 dots remain in level (& no ghosts in home), his scatter mode(s) target tile upper-left -> PM location
-          // enemy.targetTileX = player.positionX;
-          // enemy.targetTileY = player.positionY;
+          enemy.targetTileX = player.positionX;
+          enemy.targetTileY = player.positionY;
 
           // temp
-          enemy.targetTileX = 61;
-          enemy.targetTileY = 1;
+          // enemy.targetTileX = 61;
+          // enemy.targetTileY = 1;
           break;
 
         case ENEMY_INDEX_PINKY:
@@ -1656,8 +1675,8 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
           }
 
           // temp
-          enemy.targetTileX = 5;
-          enemy.targetTileY = 1;
+          // enemy.targetTileX = 5;
+          // enemy.targetTileY = 1;
           break;
 
         case ENEMY_INDEX_INKY:
@@ -1696,8 +1715,8 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
             Math.abs(targetTileBlinkyY - targetTilePlayerY) * 2;
 
           // temp
-          enemy.targetTileX = 66;
-          enemy.targetTileY = 73;
+          // enemy.targetTileX = 66;
+          // enemy.targetTileY = 73;
           break;
 
         case ENEMY_INDEX_CLYDE:
@@ -1950,10 +1969,10 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
 function enemiesUpdate() {
   for (let index = 0; index < enemies.length; index++) {
     const enemy = enemies[index];
-    // update previousPositions
-    enemy.previousPositionX = enemy.positionX;
-    enemy.previousPositionY = enemy.positionY;
     if (enemy.moving) {
+      // update previousPositions
+      enemy.previousPositionX = enemy.positionX;
+      enemy.previousPositionY = enemy.positionY;
       // move enemy in the pre-determined (from last frame) direction
       if (enemy.tunnelTimer == 0) {
         switch (enemy.nextDirection) {
@@ -2003,13 +2022,13 @@ function enemiesUpdate() {
         player.positionX == enemy.positionX &&
         player.positionY == enemy.positionY
       ) {
-        player.dying = true;
-        player.lives -= 1;
-        player.frameNo = 0;
-        player.moving = false;
-        for (let index = 0; index < enemies.length; index++) {
-          enemies[index].moving = false;
-        }
+        // player.dying = true;
+        // player.lives -= 1;
+        // player.frameNo = 0;
+        // player.moving = false;
+        // for (let index = 0; index < enemies.length; index++) {
+        //   enemies[index].moving = false;
+        // }
       }
     } // if moving
 
@@ -2026,6 +2045,32 @@ function enemiesUpdate() {
   } // for
 }
 
+function reverseDirection() {
+  for (let index = 0; index < enemies.length; index++) {
+    switch (enemies[index].whichWay) {
+      case "left":
+        enemies[index].whichWay = "right";
+        enemies[index].nextDirection = "right";
+        break;
+
+      case "right":
+        enemies[index].whichWay = "left";
+        enemies[index].nextDirection = "left";
+        break;
+      case "up":
+        enemies[index].whichWay = "down";
+        enemies[index].nextDirection = "down";
+        break;
+      case "down":
+        enemies[index].whichWay = "up";
+        enemies[index].nextDirection = "up";
+        break;
+      default:
+        break;
+    }
+  }
+}
+
 // - - - MAIN GAME LOOP - - -
 
 function gameLoop() {
@@ -2033,6 +2078,69 @@ function gameLoop() {
   enemiesUpdate();
   playerUpdate();
   screenBitmapUpdate();
+
+  // handle enemy modes
+  var whichTimerStage;
+  if (gameGlobals.levelIndex == 1) {
+    whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL1];
+  } else if (gameGlobals.levelIndex >= 2 && gameGlobals.levelIndex <= 4) {
+    whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL2];
+  } else if (gameGlobals.levelIndex >= 5) {
+    whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL5];
+  }
+  // scatter -> chase
+  if (
+    gameGlobals.enemyMode == ENEMY_MODE_SCATTER &&
+    gameGlobals.scatterTimer > 0
+  ) {
+    gameGlobals.scatterTimer -= 1;
+    if (
+      gameGlobals.enemyMode == ENEMY_MODE_SCATTER &&
+      gameGlobals.scatterTimer == 0
+    ) {
+      gameGlobals.enemyMode = ENEMY_MODE_CHASE;
+      gameGlobals.previousMode = ENEMY_MODE_SCATTER;
+      if (gameGlobals.modeStageIndex < 6) {
+        gameGlobals.modeStageIndex += 1;
+        gameGlobals.chaseTimer = Math.trunc(
+          whichTimerStage[gameGlobals.modeStageIndex] /
+            gameGlobals.timerDuration
+        ); // secs
+      } else {
+        gameGlobals.chaseTimer = Math.trunc(
+          whichTimerStage[5] / gameGlobals.timerDuration
+        ); // repeat last chase timer (secs)
+      }
+      reverseDirection();
+    }
+    // chase -> scatter
+  } else if (
+    gameGlobals.enemyMode == ENEMY_MODE_CHASE &&
+    gameGlobals.chaseTimer > 0
+  ) {
+    gameGlobals.chaseTimer -= 1;
+    if (
+      gameGlobals.enemyMode == ENEMY_MODE_CHASE &&
+      gameGlobals.chaseTimer == 0
+    ) {
+      if (gameGlobals.modeStageIndex < 6) {
+        gameGlobals.enemyMode = ENEMY_MODE_SCATTER;
+        gameGlobals.previousMode = ENEMY_MODE_CHASE;
+        gameGlobals.modeStageIndex += 1;
+        gameGlobals.scatterTimer = Math.trunc(
+          whichTimerStage[gameGlobals.modeStageIndex] /
+            gameGlobals.timerDuration
+        ); // secs
+      } else {
+        gameGlobals.enemyMode = ENEMY_MODE_CHASE;
+        gameGlobals.previousMode = ENEMY_MODE_CHASE;
+        gameGlobals.chaseTimer = Math.trunc(
+          whichTimerStage[5] / gameGlobals.timerDuration
+        ); // repeat last chase timer (secs)
+      }
+      reverseDirection();
+    }
+  }
 
   // handle extra life
   if (!gameGlobals.extraLife && player.score > EXTRA_LIFE_SCORE) {
@@ -2151,10 +2259,16 @@ function gameLoop() {
       player.previousPositionY = player.positionY;
       player.positionX = 0;
       player.positionY = 0;
+      for (let index = 0; index < enemies.length; index++) {
+        const enemy = enemies[index];
+        enemy.previousPositionX = enemy.positionX;
+        enemy.previousPositionY = enemy.positionY;
+        enemy.positionX = 0;
+        enemy.positionY = 0;
+      }
       // timer completion
       prepareLevel();
       screenBitmapInitialRefresh();
-      //
     } else if (gameGlobals.levelCompletedTimer % 3 == 0) {
       // toggle backdrop via script
       FileMaker.PerformScriptWithOption("BackdropAlternateToggle 2", "", 0);
@@ -2166,6 +2280,15 @@ function gameLoop() {
     // enable erasing sprite from current location (prevents last pellet from being lost)
     player.previousPositionX = player.positionX;
     player.previousPositionY = player.positionY;
+    player.positionX = 0;
+    player.positionY = 0;
+    for (let index = 0; index < enemies.length; index++) {
+      const enemy = enemies[index];
+      enemy.previousPositionX = enemy.positionX;
+      enemy.previousPositionY = enemy.positionY;
+      enemy.positionX = 0;
+      enemy.positionY = 0;
+    }
 
     gameGlobals.levelPreparingTimer -= 1;
     if (gameGlobals.levelPreparingTimer == 0) {
