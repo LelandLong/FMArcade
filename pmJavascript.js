@@ -20,6 +20,7 @@ var gameGlobals = {
   fruitTimer: 0,
   fruitScore: "",
   fruitScoreTimer: 0,
+  enemyScoreTimer: 0,
   blinkTimer: 3,
   blinkFrame: 31,
   enemyMode: 0,
@@ -48,6 +49,14 @@ const ENEMY_FRAME_FRIGHTENEDALT = 27;
 const PELLET_FRAME = 30;
 const ENERGIZER_FRAME = 31;
 const ENERGIZERALT_FRAME = 32; // empty graphic (blinking)
+const ENEMY_EATEN_UP = 28;
+const ENEMY_EATEN_LEFT = 29;
+const ENEMY_EATEN_DOWN = 33;
+const ENEMY_EATEN_RIGHT = 34;
+const ENEMY_EATEN_SCORE_200 = 35;
+const ENEMY_EATEN_SCORE_400 = 36;
+const ENEMY_EATEN_SCORE_800 = 37;
+const ENEMY_EATEN_SCORE_1600 = 38;
 const WALL_FRAME = 50;
 const EMPTY_FRAME = 0;
 const CHERRY_FRAME = 40;
@@ -70,6 +79,7 @@ const SCORING_GALAXIAN = 2000;
 const SCORING_BELL = 3000;
 const SCORING_KEY = 5000;
 const EXTRA_LIFE_SCORE = 10000;
+const ENEMY_EATEN_SCORES = [200, 400, 800, 1600];
 
 const PREPARING_FULLTIMER = 30;
 const PREPARING_HALFTIMER = 15;
@@ -80,6 +90,7 @@ const FRUIT_SCORE_TIMER = 30;
 const ENEMY_FRIGHTENED_TIMER = Math.trunc(8000 / gameGlobals.timerDuration); // 8 secs;
 const ENEMY_FRIGHTENED_HALFTIMER = Math.trunc(ENEMY_FRIGHTENED_TIMER / 2); // 4 secs;
 const BLINK_TIMER = 3;
+const ENEMY_SCORE_TIMER = 30;
 
 // count of pellets
 const PELLET_COUNT = 280;
@@ -583,6 +594,7 @@ var player = {
   whichWay: "left",
   lastKey: "left",
   score: 0,
+  enemyScoreIndex: 0,
   lives: 3,
   dying: false,
 };
@@ -945,6 +957,32 @@ function screenBitmapUpdate() {
           enemy.frightenedFrame = ENEMY_FRAME_FRIGHTENED;
         }
         screenBitmap[enemy.positionY][enemy.positionX] = enemy.frightenedFrame;
+      } else if (enemy.killed) {
+        switch (enemy.whichWay) {
+          case "left":
+            screenBitmap[enemy.positionY][enemy.positionX] = ENEMY_EATEN_LEFT;
+            break;
+
+          case "right":
+            screenBitmap[enemy.positionY][enemy.positionX] = ENEMY_EATEN_RIGHT;
+            break;
+
+          case "up":
+            screenBitmap[enemy.positionY][enemy.positionX] = ENEMY_EATEN_UP;
+            break;
+
+          case "down":
+            screenBitmap[enemy.positionY][enemy.positionX] = ENEMY_EATEN_DOWN;
+            break;
+
+          default:
+            FileMaker.PerformScriptWithOption(
+              "Console ( data ) 2",
+              "Error for screenBitmapUpdate ENEMY_KILLED; default case - whichWay:" +
+                enemy.whichWay,
+              0
+            );
+        } // switch
       } else {
         switch (enemy.whichWay) {
           case "left":
@@ -1025,7 +1063,7 @@ function screenBitmapUpdate() {
           0
         );
     } // switch
-  } // if
+  } // if levelCompletedTimer
 }
 
 // - - -
@@ -1042,6 +1080,7 @@ function prepareForPlay() {
   player.whichWay = "left";
   player.lastKey = "left";
   player.dying = false;
+  player.enemyScoreIndex = 0;
 
   enemies[0].previousPositionX = enemies[0].positionX;
   enemies[0].previousPositionY = enemies[0].positionY;
@@ -1442,6 +1481,15 @@ function playerUpdate() {
         enemies[index].frightened = true;
       }
       gameGlobals.frightenedTimer = ENEMY_FRIGHTENED_TIMER;
+      if (gameGlobals.enemyMode == ENEMY_MODE_SCATTER) {
+        // increase timer by new timer value so that when frightened=0 then scatterTimer will resume
+        gameGlobals.scatterTimer += ENEMY_FRIGHTENED_TIMER;
+      } else if (gameGlobals.enemyMode == ENEMY_MODE_CHASE) {
+        // increase timer by new timer value so that when frightened=0 then scatterTimer will resume
+        gameGlobals.chaseTimer += ENEMY_FRIGHTENED_TIMER;
+      }
+      gameGlobals.previousMode = gameGlobals.enemyMode;
+      gameGlobals.enemyMode = ENEMY_MODE_FRIGHTENED;
     } else if (
       screenBitmap[player.positionY][player.positionX] == CHERRY_FRAME
     ) {
@@ -1502,15 +1550,22 @@ function playerUpdate() {
           player.positionX == enemy.positionX &&
           player.positionY == enemy.positionY
         ) {
-          // player.dying = true;
-          // player.lives -= 1;
-          // player.frameNo = 0;
-          // player.moving = false;
-          // for (let index = 0; index < enemies.length; index++) {
-          //   enemies[index].moving = false;
-          // }
+          if (enemy.frightened && !enemy.killed) {
+            player.score += ENEMY_EATEN_SCORES[player.enemyScoreIndex];
+            enemies[index].killed = true;
+            enemies[index].frightened = false;
+            gameGlobals.enemyScoreTimer = ENEMY_SCORE_TIMER;
+          } else {
+            // player.dying = true;
+            // player.lives -= 1;
+            // player.frameNo = 0;
+            // player.moving = false;
+            // for (let index = 0; index < enemies.length; index++) {
+            //   enemies[index].moving = false;
+            // }
+          }
         }
-      }
+      } // for
     } // if
   } // if
 }
@@ -1613,8 +1668,30 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
       // determine targetTile
       switch (nameIndex) {
         case ENEMY_INDEX_BLINKY:
-          enemy.targetTileX = 61;
-          enemy.targetTileY = 1;
+          // when 20/30/40 dots remain in level (& no ghosts in home), his scatter mode(s) target tile upper-left -> PM location
+          if (
+            gameGlobals.levelIndex == 1 &&
+            gameGlobals.levelPelletCount <= 20
+          ) {
+            enemy.targetTileX = player.positionX;
+            enemy.targetTileY = player.positionY;
+          } else if (
+            gameGlobals.levelIndex >= 2 &&
+            gameGlobals.levelIndex <= 4 &&
+            gameGlobals.levelPelletCount <= 30
+          ) {
+            enemy.targetTileX = player.positionX;
+            enemy.targetTileY = player.positionY;
+          } else if (
+            gameGlobals.levelIndex >= 5 &&
+            gameGlobals.levelPelletCount <= 40
+          ) {
+            enemy.targetTileX = player.positionX;
+            enemy.targetTileY = player.positionY;
+          } else {
+            enemy.targetTileX = 61;
+            enemy.targetTileY = 1;
+          }
           break;
 
         case ENEMY_INDEX_PINKY:
@@ -1641,13 +1718,8 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
       // determine targetTile
       switch (nameIndex) {
         case ENEMY_INDEX_BLINKY:
-          // when 20/30/40 dots remain in level (& no ghosts in home), his scatter mode(s) target tile upper-left -> PM location
           enemy.targetTileX = player.positionX;
           enemy.targetTileY = player.positionY;
-
-          // temp
-          // enemy.targetTileX = 61;
-          // enemy.targetTileY = 1;
           break;
 
         case ENEMY_INDEX_PINKY:
@@ -1673,10 +1745,6 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
             default:
               break;
           }
-
-          // temp
-          // enemy.targetTileX = 5;
-          // enemy.targetTileY = 1;
           break;
 
         case ENEMY_INDEX_INKY:
@@ -1713,10 +1781,6 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
           enemy.targetTileY =
             targetTileBlinkyY +
             Math.abs(targetTileBlinkyY - targetTilePlayerY) * 2;
-
-          // temp
-          // enemy.targetTileX = 66;
-          // enemy.targetTileY = 73;
           break;
 
         case ENEMY_INDEX_CLYDE:
@@ -1747,25 +1811,44 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
       break;
 
     case ENEMY_MODE_FRIGHTENED:
-      switch (enemy.whichWay) {
-        case "left":
+      // Ghosts do not reverse direction when changing back from frightened to chase or scatter modes.
+      // Ghosts use a pseudo-random number generator (PRNG) to pick a way to turn at each intersection when frightened.
+      // the random direction a frightened ghost must first try. If a wall blocks the chosen direction,
+      //    the ghost then attempts the remaining directions in this order: up, left, down, and right, until a passable direction is found.
+      const randomDirection = Math.floor(Math.random() * 3); // 0-3
+      switch (randomDirection) {
+        case 0:
+          enemy.targetTileX = enemy.positionX;
+          enemy.targetTileY = enemy.positionY - 1;
           break;
-        case "right":
+        case 1:
+          enemy.targetTileX = enemy.positionX - 1;
+          enemy.targetTileY = enemy.positionY;
           break;
-        case "up":
+        case 2:
+          enemy.targetTileX = enemy.positionX;
+          enemy.targetTileY = enemy.positionY + 1;
           break;
-        case "down":
+        case 3:
+          enemy.targetTileX = enemy.positionX + 1;
+          enemy.targetTileY = enemy.positionY;
           break;
 
         default:
           break;
-      } // switch whichWay
+      } // switch randomDirection
 
       break;
 
     default:
       break;
   } // switch enemyMode
+
+  if (enemy.killed) {
+    // head for home
+    enemy.targetTileX = 33;
+    enemy.targetTileY = 34;
+  }
 
   // use targetTile to calculate new direction
   switch (enemy.whichWay) {
@@ -2022,13 +2105,20 @@ function enemiesUpdate() {
         player.positionX == enemy.positionX &&
         player.positionY == enemy.positionY
       ) {
-        // player.dying = true;
-        // player.lives -= 1;
-        // player.frameNo = 0;
-        // player.moving = false;
-        // for (let index = 0; index < enemies.length; index++) {
-        //   enemies[index].moving = false;
-        // }
+        if (enemy.frightened && !enemy.killed) {
+          player.score += ENEMY_EATEN_SCORES[player.enemyScoreIndex];
+          enemies[index].killed = true;
+          enemies[index].frightened = false;
+          gameGlobals.enemyScoreTimer = ENEMY_SCORE_TIMER;
+        } else {
+          // player.dying = true;
+          // player.lives -= 1;
+          // player.frameNo = 0;
+          // player.moving = false;
+          // for (let index = 0; index < enemies.length; index++) {
+          //   enemies[index].moving = false;
+          // }
+        }
       }
     } // if moving
 
@@ -2074,187 +2164,232 @@ function reverseDirection() {
 // - - - MAIN GAME LOOP - - -
 
 function gameLoop() {
-  // move sprites and update screenBitmap
-  enemiesUpdate();
-  playerUpdate();
-  screenBitmapUpdate();
+  // all movement stops when frightened enemies are initially eaten and score is shown
+  if (gameGlobals.enemyScoreTimer == 0) {
+    // move sprites and update screenBitmap
+    enemiesUpdate();
+    playerUpdate();
+    screenBitmapUpdate();
 
-  // handle enemy modes
-  var whichTimerStage;
-  if (gameGlobals.levelIndex == 1) {
-    whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL1];
-  } else if (gameGlobals.levelIndex >= 2 && gameGlobals.levelIndex <= 4) {
-    whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL2];
-  } else if (gameGlobals.levelIndex >= 5) {
-    whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL5];
-  }
-  // scatter -> chase
-  if (
-    gameGlobals.enemyMode == ENEMY_MODE_SCATTER &&
-    gameGlobals.scatterTimer > 0
-  ) {
-    gameGlobals.scatterTimer -= 1;
+    // handle enemy modes
+    var whichTimerStage;
+    if (gameGlobals.levelIndex == 1) {
+      whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL1];
+    } else if (gameGlobals.levelIndex >= 2 && gameGlobals.levelIndex <= 4) {
+      whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL2];
+    } else if (gameGlobals.levelIndex >= 5) {
+      whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL5];
+    }
+    console.log("enemyMode: ", gameGlobals.enemyMode);
+    // scatter -> chase
     if (
       gameGlobals.enemyMode == ENEMY_MODE_SCATTER &&
-      gameGlobals.scatterTimer == 0
+      gameGlobals.scatterTimer > 0
     ) {
-      gameGlobals.enemyMode = ENEMY_MODE_CHASE;
-      gameGlobals.previousMode = ENEMY_MODE_SCATTER;
-      if (gameGlobals.modeStageIndex < 6) {
-        gameGlobals.modeStageIndex += 1;
-        gameGlobals.chaseTimer = Math.trunc(
-          whichTimerStage[gameGlobals.modeStageIndex] /
-            gameGlobals.timerDuration
-        ); // secs
-      } else {
-        gameGlobals.chaseTimer = Math.trunc(
-          whichTimerStage[5] / gameGlobals.timerDuration
-        ); // repeat last chase timer (secs)
-      }
-      reverseDirection();
-    }
-    // chase -> scatter
-  } else if (
-    gameGlobals.enemyMode == ENEMY_MODE_CHASE &&
-    gameGlobals.chaseTimer > 0
-  ) {
-    gameGlobals.chaseTimer -= 1;
-    if (
-      gameGlobals.enemyMode == ENEMY_MODE_CHASE &&
-      gameGlobals.chaseTimer == 0
-    ) {
-      if (gameGlobals.modeStageIndex < 6) {
-        gameGlobals.enemyMode = ENEMY_MODE_SCATTER;
-        gameGlobals.previousMode = ENEMY_MODE_CHASE;
-        gameGlobals.modeStageIndex += 1;
-        gameGlobals.scatterTimer = Math.trunc(
-          whichTimerStage[gameGlobals.modeStageIndex] /
-            gameGlobals.timerDuration
-        ); // secs
-      } else {
+      gameGlobals.scatterTimer -= 1;
+      if (
+        gameGlobals.enemyMode == ENEMY_MODE_SCATTER &&
+        gameGlobals.scatterTimer == 0
+      ) {
         gameGlobals.enemyMode = ENEMY_MODE_CHASE;
-        gameGlobals.previousMode = ENEMY_MODE_CHASE;
-        gameGlobals.chaseTimer = Math.trunc(
-          whichTimerStage[5] / gameGlobals.timerDuration
-        ); // repeat last chase timer (secs)
-      }
-      reverseDirection();
-    }
-  }
-
-  // handle extra life
-  if (!gameGlobals.extraLife && player.score > EXTRA_LIFE_SCORE) {
-    gameGlobals.extraLife = true;
-    player.lives += 1;
-  }
-
-  // handle pellet count - converted to simpler count to save possibly expensive process
-  //     ref: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat
-  //     ref: https://linuxhint.com/count-certain-elements-in-array-in-javascript/
-  gameGlobals.levelPelletCount = screenBitmap
-    .flat()
-    .reduce(
-      (count, value) => (value == 30 || value == 31 ? count + 1 : count),
-      0
-    );
-
-  // handle fruit
-  if (
-    !gameGlobals.firstFruitFlag &&
-    gameGlobals.levelPelletCount < PELLET_COUNT - 70
-  ) {
-    gameGlobals.firstFruitFlag = true;
-    gameGlobals.fruitTimer = FRUIT_TIMER;
-    addFruit();
-  } else if (
-    !gameGlobals.secondFruitFlag &&
-    gameGlobals.levelPelletCount < PELLET_COUNT - 170
-  ) {
-    gameGlobals.secondFruitFlag = true;
-    gameGlobals.fruitTimer = FRUIT_TIMER;
-    addFruit();
-  }
-  //
-  if (gameGlobals.fruitTimer > 0) {
-    gameGlobals.fruitTimer -= 1;
-    if (gameGlobals.fruitTimer == 0) {
-      removeFruit();
-    }
-  }
-  //
-  if (gameGlobals.fruitScoreTimer > 0) {
-    gameGlobals.fruitScoreTimer -= 1;
-    if (gameGlobals.fruitScoreTimer == 0) {
-      player.fruitScore = "";
-    }
-  }
-
-  // handle blinkTimer
-  if (gameGlobals.preparingTimer == 0) {
-    if (gameGlobals.blinkTimer > 0) {
-      gameGlobals.blinkTimer -= 1;
-      if (gameGlobals.blinkTimer == 0) {
-        // reset timer
-        gameGlobals.blinkTimer = BLINK_TIMER;
-        // select blink frame
-        if (gameGlobals.blinkFrame == ENERGIZER_FRAME) {
-          gameGlobals.blinkFrame = ENERGIZERALT_FRAME;
+        gameGlobals.previousMode = ENEMY_MODE_SCATTER;
+        if (gameGlobals.modeStageIndex < 6) {
+          gameGlobals.modeStageIndex += 1;
+          gameGlobals.chaseTimer = Math.trunc(
+            whichTimerStage[gameGlobals.modeStageIndex] /
+              gameGlobals.timerDuration
+          ); // secs
         } else {
-          gameGlobals.blinkFrame = ENERGIZER_FRAME;
+          gameGlobals.chaseTimer = Math.trunc(
+            whichTimerStage[5] / gameGlobals.timerDuration
+          ); // repeat last chase timer (secs)
         }
-        // energizers
-        if (screenBitmap[56][2] != EMPTY_FRAME) {
-          screenBitmap[56][2] = gameGlobals.blinkFrame;
+        reverseDirection();
+      }
+      // chase -> scatter
+    } else if (
+      gameGlobals.enemyMode == ENEMY_MODE_CHASE &&
+      gameGlobals.chaseTimer > 0
+    ) {
+      gameGlobals.chaseTimer -= 1;
+      if (
+        gameGlobals.enemyMode == ENEMY_MODE_CHASE &&
+        gameGlobals.chaseTimer == 0
+      ) {
+        if (gameGlobals.modeStageIndex < 6) {
+          gameGlobals.enemyMode = ENEMY_MODE_SCATTER;
+          gameGlobals.previousMode = ENEMY_MODE_CHASE;
+          gameGlobals.modeStageIndex += 1;
+          gameGlobals.scatterTimer = Math.trunc(
+            whichTimerStage[gameGlobals.modeStageIndex] /
+              gameGlobals.timerDuration
+          ); // secs
+        } else {
+          gameGlobals.enemyMode = ENEMY_MODE_CHASE;
+          gameGlobals.previousMode = ENEMY_MODE_CHASE;
+          gameGlobals.chaseTimer = Math.trunc(
+            whichTimerStage[5] / gameGlobals.timerDuration
+          ); // repeat last chase timer (secs)
         }
-        if (screenBitmap[56][63] != EMPTY_FRAME) {
-          screenBitmap[56][63] = gameGlobals.blinkFrame;
-        }
-        if (screenBitmap[6][2] != EMPTY_FRAME) {
-          screenBitmap[6][2] = gameGlobals.blinkFrame;
-        }
-        if (screenBitmap[6][63] != EMPTY_FRAME) {
-          screenBitmap[6][63] = gameGlobals.blinkFrame;
-        }
+        reverseDirection();
       }
     }
-  }
 
-  // handle frightenedTimer
-  if (gameGlobals.frightenedTimer > 0) {
-    gameGlobals.frightenedTimer -= 1;
-    if (gameGlobals.frightenedTimer == 0) {
-      for (let index = 0; index < enemies.length; index++) {
-        enemies[index].frightened = false;
-      }
+    // handle extra life
+    if (!gameGlobals.extraLife && player.score > EXTRA_LIFE_SCORE) {
+      gameGlobals.extraLife = true;
+      player.lives += 1;
     }
-  }
 
-  // handle level completed
-  if (
-    gameGlobals.levelCompletedTimer == 0 &&
-    gameGlobals.levelPreparingTimer == 0 &&
-    gameGlobals.levelPelletCount < 1
-  ) {
-    levelCompletion();
-  }
+    // handle pellet count - converted to simpler count to save possibly expensive process
+    //     ref: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat
+    //     ref: https://linuxhint.com/count-certain-elements-in-array-in-javascript/
+    gameGlobals.levelPelletCount = screenBitmap
+      .flat()
+      .reduce(
+        (count, value) => (value == 30 || value == 31 ? count + 1 : count),
+        0
+      );
 
-  // handle preparingForPlay
-  if (gameGlobals.preparingTimer > 0) {
-    gameGlobals.preparingTimer -= 1;
-    if (gameGlobals.preparingTimer == 0) {
-      startPlay();
-    } else if (gameGlobals.preparingTimer == PREPARING_HALFTIMER) {
-      setToPlay();
+    // handle fruit
+    if (
+      !gameGlobals.firstFruitFlag &&
+      gameGlobals.levelPelletCount < PELLET_COUNT - 70
+    ) {
+      gameGlobals.firstFruitFlag = true;
+      gameGlobals.fruitTimer = FRUIT_TIMER;
+      addFruit();
+    } else if (
+      !gameGlobals.secondFruitFlag &&
+      gameGlobals.levelPelletCount < PELLET_COUNT - 170
+    ) {
+      gameGlobals.secondFruitFlag = true;
+      gameGlobals.fruitTimer = FRUIT_TIMER;
+      addFruit();
     }
-  }
-
-  // handle level completed
-  if (gameGlobals.levelCompletedTimer > 0) {
-    gameGlobals.levelCompletedTimer -= 1;
     //
-    if (gameGlobals.levelCompletedTimer == 0) {
-      gameGlobals.levelPreparingTimer = LEVELPREPARING_TIMER;
-      // enable erasing sprite from current location
+    if (gameGlobals.fruitTimer > 0) {
+      gameGlobals.fruitTimer -= 1;
+      if (gameGlobals.fruitTimer == 0) {
+        removeFruit();
+      }
+    }
+    //
+    if (gameGlobals.fruitScoreTimer > 0) {
+      gameGlobals.fruitScoreTimer -= 1;
+      if (gameGlobals.fruitScoreTimer == 0) {
+        player.fruitScore = "";
+      }
+    }
+
+    // handle blinkTimer
+    if (gameGlobals.preparingTimer == 0) {
+      if (gameGlobals.blinkTimer > 0) {
+        gameGlobals.blinkTimer -= 1;
+        if (gameGlobals.blinkTimer == 0) {
+          // reset timer
+          gameGlobals.blinkTimer = BLINK_TIMER;
+          // select blink frame
+          if (gameGlobals.blinkFrame == ENERGIZER_FRAME) {
+            gameGlobals.blinkFrame = ENERGIZERALT_FRAME;
+          } else {
+            gameGlobals.blinkFrame = ENERGIZER_FRAME;
+          }
+          // energizers
+          if (
+            screenBitmap[56][2] == ENERGIZER_FRAME ||
+            screenBitmap[56][2] == ENERGIZERALT_FRAME
+          ) {
+            screenBitmap[56][2] = gameGlobals.blinkFrame;
+          }
+          if (
+            screenBitmap[56][63] == ENERGIZER_FRAME ||
+            screenBitmap[56][63] == ENERGIZERALT_FRAME
+          ) {
+            screenBitmap[56][63] = gameGlobals.blinkFrame;
+          }
+          if (
+            screenBitmap[6][2] == ENERGIZER_FRAME ||
+            screenBitmap[6][2] == ENERGIZERALT_FRAME
+          ) {
+            screenBitmap[6][2] = gameGlobals.blinkFrame;
+          }
+          if (
+            screenBitmap[6][63] == ENERGIZER_FRAME ||
+            screenBitmap[6][63] == ENERGIZERALT_FRAME
+          ) {
+            screenBitmap[6][63] = gameGlobals.blinkFrame;
+          }
+        }
+      }
+    }
+
+    // handle frightenedTimer
+    if (gameGlobals.frightenedTimer > 0) {
+      gameGlobals.frightenedTimer -= 1;
+      if (gameGlobals.frightenedTimer == 0) {
+        for (let index = 0; index < enemies.length; index++) {
+          enemies[index].frightened = false;
+        }
+        gameGlobals.enemyMode = gameGlobals.previousMode;
+        // clear enemyScoreIndex
+        console.log(
+          "clearing player.enemyScoreIndex from: ",
+          player.enemyScoreIndex
+        );
+        player.enemyScoreIndex = 0;
+      }
+    }
+
+    // handle level completed
+    if (
+      gameGlobals.levelCompletedTimer == 0 &&
+      gameGlobals.levelPreparingTimer == 0 &&
+      gameGlobals.levelPelletCount < 1
+    ) {
+      levelCompletion();
+    }
+
+    // handle preparingForPlay
+    if (gameGlobals.preparingTimer > 0) {
+      gameGlobals.preparingTimer -= 1;
+      if (gameGlobals.preparingTimer == 0) {
+        startPlay();
+      } else if (gameGlobals.preparingTimer == PREPARING_HALFTIMER) {
+        setToPlay();
+      }
+    }
+
+    // handle level completed
+    if (gameGlobals.levelCompletedTimer > 0) {
+      gameGlobals.levelCompletedTimer -= 1;
+      //
+      if (gameGlobals.levelCompletedTimer == 0) {
+        gameGlobals.levelPreparingTimer = LEVELPREPARING_TIMER;
+        // enable erasing sprite from current location
+        player.previousPositionX = player.positionX;
+        player.previousPositionY = player.positionY;
+        player.positionX = 0;
+        player.positionY = 0;
+        for (let index = 0; index < enemies.length; index++) {
+          const enemy = enemies[index];
+          enemy.previousPositionX = enemy.positionX;
+          enemy.previousPositionY = enemy.positionY;
+          enemy.positionX = 0;
+          enemy.positionY = 0;
+        }
+        // timer completion
+        prepareLevel();
+        screenBitmapInitialRefresh();
+      } else if (gameGlobals.levelCompletedTimer % 3 == 0) {
+        // toggle backdrop via script
+        FileMaker.PerformScriptWithOption("BackdropAlternateToggle 2", "", 0);
+      }
+    }
+
+    // handle level preparation
+    if (gameGlobals.levelPreparingTimer > 0) {
+      // enable erasing sprite from current location (prevents last pellet from being lost)
       player.previousPositionX = player.positionX;
       player.previousPositionY = player.positionY;
       player.positionX = 0;
@@ -2266,35 +2401,23 @@ function gameLoop() {
         enemy.positionX = 0;
         enemy.positionY = 0;
       }
-      // timer completion
-      prepareLevel();
-      screenBitmapInitialRefresh();
-    } else if (gameGlobals.levelCompletedTimer % 3 == 0) {
-      // toggle backdrop via script
-      FileMaker.PerformScriptWithOption("BackdropAlternateToggle 2", "", 0);
-    }
-  }
 
-  // handle level preparation
-  if (gameGlobals.levelPreparingTimer > 0) {
-    // enable erasing sprite from current location (prevents last pellet from being lost)
-    player.previousPositionX = player.positionX;
-    player.previousPositionY = player.positionY;
-    player.positionX = 0;
-    player.positionY = 0;
-    for (let index = 0; index < enemies.length; index++) {
-      const enemy = enemies[index];
-      enemy.previousPositionX = enemy.positionX;
-      enemy.previousPositionY = enemy.positionY;
-      enemy.positionX = 0;
-      enemy.positionY = 0;
+      gameGlobals.levelPreparingTimer -= 1;
+      if (gameGlobals.levelPreparingTimer == 0) {
+        prepareForPlay();
+      }
     }
-
-    gameGlobals.levelPreparingTimer -= 1;
-    if (gameGlobals.levelPreparingTimer == 0) {
-      prepareForPlay();
+  } else {
+    // decrement enemyScoreTimer
+    gameGlobals.enemyScoreTimer -= 1;
+    // while scoreTimer has everything stopped, replace player sprite with score sprite
+    screenBitmap[player.positionY][player.positionX] =
+      ENEMY_EATEN_SCORE_200 + player.enemyScoreIndex;
+    if (gameGlobals.enemyScoreTimer < 1) {
+      // reset scoreIndex
+      player.enemyScoreIndex += 1;
     }
-  }
+  } // if enemyScoreTimer
 
   // render everything
   updateFMP();
