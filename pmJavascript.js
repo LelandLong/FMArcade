@@ -9,7 +9,6 @@ var gameGlobals = {
   timerDuration: 70,
   extraLife: false,
   levelIndex: 0,
-  levelActive: false,
   levelPelletCount: 0,
   preparingTimer: 0,
   levelCompletedTimer: 0,
@@ -58,6 +57,7 @@ const ENEMY_EATEN_SCORE_400 = 36;
 const ENEMY_EATEN_SCORE_800 = 37;
 const ENEMY_EATEN_SCORE_1600 = 38;
 const WALL_FRAME = 50;
+const DOOR_FRAME = 51;
 const EMPTY_FRAME = 0;
 const CHERRY_FRAME = 40;
 const STRAWBERRY_FRAME = 41;
@@ -101,9 +101,9 @@ const FRUIT_COLUMN = 33;
 
 // enemy A.I.
 const ENEMY_INDEX_BLINKY = 0;
-const ENEMY_INDEX_PINKY = 1;
-const ENEMY_INDEX_INKY = 2;
-const ENEMY_INDEX_CLYDE = 3;
+const ENEMY_INDEX_INKY = 1;
+const ENEMY_INDEX_CLYDE = 2;
+const ENEMY_INDEX_PINKY = 3;
 const ENEMY_MODE_SCATTER = 0;
 const ENEMY_MODE_CHASE = 1;
 const ENEMY_MODE_FRIGHTENED = 2;
@@ -307,68 +307,68 @@ const initialScreenBitmap = [
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
+    50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
+    50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
+    50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
+    50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
+    00, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 30, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 30, 00, 00, 00, 00, 00,
+    00, 00, 00, 00, 50, 50, 50, 50, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
+    00, 50, 50, 50, 50, 00, 00, 00, 00, 00, 00, 00, 00, 30, 00, 00, 00, 00, 00,
     00, 00, 00, 00, 00, 00, 00, 00, 00,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
+    00, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
+    00, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
+    50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
+    50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 30, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
     50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50,
-    50, 50, 50, 00, 50, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00,
-    00, 00, 00, 00, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
+    50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
+    50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50, 50, 50, 00, 50, 50, 50, 50, 50,
     50, 50, 50, 50, 50, 50, 50, 50, 50,
   ],
   [
@@ -605,7 +605,7 @@ var enemies = [
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
-    tunnelTimer: 0,
+    slowdownTimer: 0,
     previousFrame: 0,
     targetTileX: 0,
     targetTileY: 0,
@@ -613,17 +613,17 @@ var enemies = [
     nextDirection: "",
     preparing: true,
     atHome: false,
+    exitHomeCounter: 0,
     frightened: false,
     frightenedFrame: 0,
     killed: false,
-    deathTimer: 0,
   },
   {
     positionX: 0,
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
-    tunnelTimer: 0,
+    slowdownTimer: 0,
     previousFrame: 0,
     targetTileX: 0,
     targetTileY: 0,
@@ -631,17 +631,17 @@ var enemies = [
     nextDirection: "",
     preparing: true,
     atHome: false,
+    exitHomeCounter: 30,
     frightened: false,
     frightenedFrame: 0,
     killed: false,
-    deathTimer: 0,
   },
   {
     positionX: 0,
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
-    tunnelTimer: 0,
+    slowdownTimer: 0,
     previousFrame: 0,
     targetTileX: 0,
     targetTileY: 0,
@@ -649,17 +649,17 @@ var enemies = [
     nextDirection: "",
     preparing: true,
     atHome: false,
+    exitHomeCounter: 60,
     frightened: false,
     frightenedFrame: 0,
     killed: false,
-    deathTimer: 0,
   },
   {
     positionX: 0,
     positionY: 0,
     previousPositionX: 0,
     previousPositionY: 0,
-    tunnelTimer: 0,
+    slowdownTimer: 0,
     previousFrame: 0,
     targetTileX: 0,
     targetTileY: 0,
@@ -667,10 +667,10 @@ var enemies = [
     nextDirection: "",
     preparing: true,
     atHome: false,
+    exitHomeCounter: 0,
     frightened: false,
     frightenedFrame: 0,
     killed: false,
-    deathTimer: 0,
   },
 ];
 
@@ -923,7 +923,7 @@ function screenBitmapUpdate() {
   for (let index = 0; index < enemies.length; index++) {
     const enemy = enemies[index];
 
-    // remove previous enemy sprite position from bitmap; replace with empty or pellet or energizer
+    // remove previous enemy sprite position from bitmap; replace with empty or pellet or energizer or fruit
     if (enemy.previousFrame == PELLET_FRAME) {
       screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
         PELLET_FRAME;
@@ -933,6 +933,16 @@ function screenBitmapUpdate() {
     } else if (enemy.previousFrame == ENERGIZERALT_FRAME) {
       screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
         ENERGIZERALT_FRAME;
+      // changing DOOR_FRAME check to static position
+    } else if (enemy.previousPositionX == 33 && enemy.previousPositionY == 28) {
+      screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
+        DOOR_FRAME;
+    } else if (
+      enemy.previousFrame >= CHERRY_FRAME &&
+      enemy.previousFrame <= KEY_FRAME
+    ) {
+      screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
+        enemy.previousFrame;
     } else {
       screenBitmap[enemy.previousPositionY][enemy.previousPositionX] =
         EMPTY_FRAME;
@@ -1093,7 +1103,6 @@ function prepareForPlay() {
   enemies[0].atHome = false;
   enemies[0].frightened = false;
   enemies[0].frightenedFrame = 0;
-  enemies[0].deathTimer = 0;
 
   enemies[1].previousPositionX = enemies[1].positionX;
   enemies[1].previousPositionY = enemies[1].positionY;
@@ -1106,7 +1115,6 @@ function prepareForPlay() {
   enemies[1].atHome = false;
   enemies[1].frightened = false;
   enemies[1].frightenedFrame = 0;
-  enemies[1].deathTimer = 0;
 
   enemies[2].previousPositionX = enemies[2].positionX;
   enemies[2].previousPositionY = enemies[2].positionY;
@@ -1119,7 +1127,6 @@ function prepareForPlay() {
   enemies[2].atHome = false;
   enemies[2].frightened = false;
   enemies[2].frightenedFrame = 0;
-  enemies[2].deathTimer = 0;
 
   enemies[3].previousPositionX = enemies[3].positionX;
   enemies[3].previousPositionY = enemies[3].positionY;
@@ -1132,7 +1139,6 @@ function prepareForPlay() {
   enemies[3].atHome = false;
   enemies[3].frightened = false;
   enemies[3].frightenedFrame = 0;
-  enemies[3].deathTimer = 0;
 
   // UI
   FileMaker.PerformScriptWithOption("PlayerReady 2", "", 0);
@@ -1157,7 +1163,7 @@ function setToPlay() {
       positionY: 27,
       previousPositionX: 0,
       previousPositionY: 0,
-      tunnelTimer: 0,
+      slowdownTimer: 0,
       previousFrame: 0,
       targetTileX: 0,
       targetTileY: 0,
@@ -1169,16 +1175,13 @@ function setToPlay() {
       frightened: false,
       frightenedFrame: 0,
       killed: false,
-      deathTimer: 0,
     },
     {
-      positionX: 22,
+      positionX: 28,
       positionY: 34,
-      // positionX: 28,
-      // positionY: 34,
       previousPositionX: 0,
       previousPositionY: 0,
-      tunnelTimer: 0,
+      slowdownTimer: 0,
       previousFrame: 0,
       targetTileX: 0,
       targetTileY: 0,
@@ -1190,16 +1193,13 @@ function setToPlay() {
       frightened: false,
       frightenedFrame: 0,
       killed: false,
-      deathTimer: 0,
     },
     {
-      positionX: 43,
+      positionX: 38,
       positionY: 34,
-      // positionX: 33,
-      // positionY: 34,
       previousPositionX: 0,
       previousPositionY: 0,
-      tunnelTimer: 0,
+      slowdownTimer: 0,
       previousFrame: 0,
       targetTileX: 0,
       targetTileY: 0,
@@ -1211,30 +1211,44 @@ function setToPlay() {
       frightened: false,
       frightenedFrame: 0,
       killed: false,
-      deathTimer: 0,
     },
     {
       positionX: 33,
-      positionY: 41,
-      // positionX: 38,
-      // positionY: 34,
+      positionY: 34,
       previousPositionX: 0,
       previousPositionY: 0,
-      tunnelTimer: 0,
+      slowdownTimer: 0,
       previousFrame: 0,
       targetTileX: 0,
       targetTileY: 0,
-      whichWay: "right",
-      nextDirection: "right",
+      whichWay: "up",
+      nextDirection: "up",
       preparing: false,
       moving: false,
       atHome: true,
       frightened: false,
       frightenedFrame: 0,
       killed: false,
-      deathTimer: 0,
     },
   ];
+
+  // home exit counters by level
+  if (gameGlobals.levelIndex == 1) {
+    enemies[ENEMY_INDEX_BLINKY].exitHomeCounter = 0;
+    enemies[ENEMY_INDEX_PINKY].exitHomeCounter = 0;
+    enemies[ENEMY_INDEX_INKY].exitHomeCounter = 30;
+    enemies[ENEMY_INDEX_CLYDE].exitHomeCounter = 60;
+  } else if (gameGlobals.levelIndex == 2) {
+    enemies[ENEMY_INDEX_BLINKY].exitHomeCounter = 0;
+    enemies[ENEMY_INDEX_PINKY].exitHomeCounter = 0;
+    enemies[ENEMY_INDEX_INKY].exitHomeCounter = 0;
+    enemies[ENEMY_INDEX_CLYDE].exitHomeCounter = 50;
+  } else if (gameGlobals.levelIndex > 2) {
+    enemies[ENEMY_INDEX_BLINKY].exitHomeCounter = 0;
+    enemies[ENEMY_INDEX_PINKY].exitHomeCounter = 0;
+    enemies[ENEMY_INDEX_INKY].exitHomeCounter = 0;
+    enemies[ENEMY_INDEX_CLYDE].exitHomeCounter = 0;
+  }
 
   // UI
   FileMaker.PerformScriptWithOption("PlayerSet 2", "", 0);
@@ -1246,7 +1260,6 @@ function startPlay() {
   // player ready
   player.moving = true;
 
-  // enemies[0].moving = true;
   for (let index = 0; index < enemies.length; index++) {
     enemies[index].moving = true;
   }
@@ -1287,7 +1300,6 @@ function endPlay() {
 // - - -
 
 function prepareLevel() {
-  gameGlobals.levelActive = true;
   gameGlobals.levelIndex += 1;
   gameGlobals.firstFruitFlag = false;
   gameGlobals.secondFruitFlag = false;
@@ -1297,7 +1309,6 @@ function prepareLevel() {
     ENEMY_MODE_TIMERSTAGES_LVL1[gameGlobals.modeStageIndex] /
       gameGlobals.timerDuration
   ); // secs
-  // gameGlobals.levelPelletCount = PELLET_COUNT;
 
   // initialize screenBitmap by copying from template (multi-dimensional array)
   //     ref (option #8): https://www.freecodecamp.org/news/how-to-clone-an-array-in-javascript-1d3183468f6a/
@@ -1470,6 +1481,18 @@ function playerUpdate() {
     if (screenBitmap[player.positionY][player.positionX] == PELLET_FRAME) {
       // pellets
       player.score += SCORING_PELLET;
+      // Inky & Clyde both have atHome counters that are decremented as pellets are collected by player
+      if (
+        enemies[ENEMY_INDEX_INKY].atHome &&
+        enemies[ENEMY_INDEX_INKY].exitHomeCounter > 0
+      ) {
+        enemies[ENEMY_INDEX_INKY].exitHomeCounter -= 1;
+      } else if (
+        enemies[ENEMY_INDEX_CLYDE].atHome &&
+        enemies[ENEMY_INDEX_CLYDE].exitHomeCounter > 0
+      ) {
+        enemies[ENEMY_INDEX_CLYDE].exitHomeCounter -= 1;
+      }
     } else if (
       screenBitmap[player.positionY][player.positionX] == ENERGIZER_FRAME ||
       screenBitmap[player.positionY][player.positionX] == ENERGIZERALT_FRAME
@@ -1613,7 +1636,8 @@ function playerWantsToMove(whichDirection) {
 
       case "down":
         if (
-          screenBitmap[player.positionY + 1][player.positionX] != WALL_FRAME
+          screenBitmap[player.positionY + 1][player.positionX] != WALL_FRAME &&
+          screenBitmap[player.positionY + 1][player.positionX] != DOOR_FRAME
         ) {
           // next position in this direction is not a wall
           player.moving = true;
@@ -1806,7 +1830,7 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
 
         default:
           break;
-      }
+      } // switch
 
       break;
 
@@ -1845,9 +1869,57 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
   } // switch enemyMode
 
   if (enemy.killed) {
-    // head for home
+    // head for home (over-ride any logic from above)
     enemy.targetTileX = 33;
     enemy.targetTileY = 34;
+    if (enemy.positionX == 33 && enemy.positionY == 34) {
+      // made it home; reset to normal
+      enemy.frightened = false;
+      enemy.killed = false;
+      enemy.atHome = true;
+    }
+  }
+
+  // exit home (over-ride any logic from above)
+  if (enemy.atHome) {
+    if (enemy.positionX == 33 && enemy.positionY == 27) {
+      // has left home
+      enemy.atHome = false;
+    }
+    switch (nameIndex) {
+      case ENEMY_INDEX_BLINKY:
+        enemy.targetTileX = 33;
+        enemy.targetTileY = 27;
+        break;
+
+      case ENEMY_INDEX_PINKY:
+        enemy.targetTileX = 33;
+        enemy.targetTileY = 27;
+        break;
+
+      case ENEMY_INDEX_INKY:
+        if (enemy.exitHomeCounter < 1) {
+          enemy.targetTileX = 33;
+          enemy.targetTileY = 27;
+        } else {
+          enemy.targetTileX = 28;
+          enemy.targetTileY = 34;
+        }
+        break;
+
+      case ENEMY_INDEX_CLYDE:
+        if (enemy.exitHomeCounter < 1) {
+          enemy.targetTileX = 33;
+          enemy.targetTileY = 27;
+        } else {
+          enemy.targetTileX = 38;
+          enemy.targetTileY = 34;
+        }
+        break;
+
+      default:
+        break;
+    } // switch
   }
 
   // use targetTile to calculate new direction
@@ -1874,7 +1946,10 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
           distanceFromTarget(enemy, tileUp).toPrecision(4)
         );
       }
-      if (tileDownFrame != WALL_FRAME) {
+      if (
+        (tileDownFrame != WALL_FRAME && tileDownFrame != DOOR_FRAME) ||
+        (enemy.killed && tileDownFrame != WALL_FRAME)
+      ) {
         tileDownDistance = parseFloat(
           distanceFromTarget(enemy, tileDown).toPrecision(4)
         );
@@ -1946,6 +2021,15 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
       ) {
         enemy.nextDirection = "right";
       }
+
+      // EXCEPT if atHome, then only up/down
+      if (enemy.atHome && enemy.exitHomeCounter > 0) {
+        if (tileUpFrame == WALL_FRAME) {
+          enemy.nextDirection = "down";
+        } else {
+          enemy.nextDirection = "up";
+        }
+      }
       break;
 
     case "right":
@@ -1970,7 +2054,10 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
           distanceFromTarget(enemy, tileRight).toPrecision(4)
         );
       }
-      if (tileDownFrame != WALL_FRAME) {
+      if (
+        (tileDownFrame != WALL_FRAME && tileDownFrame != DOOR_FRAME) ||
+        (enemy.killed && tileDownFrame != WALL_FRAME)
+      ) {
         tileDownDistance = parseFloat(
           distanceFromTarget(enemy, tileDown).toPrecision(4)
         );
@@ -2018,7 +2105,10 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
           distanceFromTarget(enemy, tileRight).toPrecision(4)
         );
       }
-      if (tileDownFrame != WALL_FRAME) {
+      if (
+        (tileDownFrame != WALL_FRAME && tileDownFrame != DOOR_FRAME) ||
+        (enemy.killed && tileDownFrame != WALL_FRAME)
+      ) {
         tileDownDistance = parseFloat(
           distanceFromTarget(enemy, tileDown).toPrecision(4)
         );
@@ -2042,6 +2132,15 @@ function enemiesNextMoveUsingDossierAI(enemy, nameIndex) {
       ) {
         enemy.nextDirection = "right";
       }
+
+      // EXCEPT if atHome, then only up/down
+      if (enemy.atHome && enemy.exitHomeCounter > 0) {
+        if (tileDownFrame == WALL_FRAME) {
+          enemy.nextDirection = "up";
+        } else {
+          enemy.nextDirection = "down";
+        }
+      }
       break;
 
     default:
@@ -2057,7 +2156,7 @@ function enemiesUpdate() {
       enemy.previousPositionX = enemy.positionX;
       enemy.previousPositionY = enemy.positionY;
       // move enemy in the pre-determined (from last frame) direction
-      if (enemy.tunnelTimer == 0) {
+      if (enemy.slowdownTimer == 0) {
         switch (enemy.nextDirection) {
           case "left":
             enemy.whichWay = "left";
@@ -2098,7 +2197,7 @@ function enemiesUpdate() {
         }
         // pre-determine next direction using dossier A.I.
         enemiesNextMoveUsingDossierAI(enemy, index);
-      } // if tunnelTimer
+      } // if slowdownTimer
 
       // player collision test
       if (
@@ -2122,15 +2221,18 @@ function enemiesUpdate() {
       }
     } // if moving
 
-    // tunnel speed reduction (skip every other move/frame)
-    if (enemy.tunnelTimer > 0) {
-      enemy.tunnelTimer = 0;
+    // tunnel/home speed reduction (skip every other move/frame)
+    if (enemy.slowdownTimer > 0) {
+      enemy.slowdownTimer = 0;
     } else if (enemy.positionY == 34 && enemy.positionX < 14) {
       // enemy slows down
-      enemy.tunnelTimer += 1;
+      enemy.slowdownTimer += 1;
     } else if (enemy.positionY == 34 && enemy.positionX > 51) {
       // enemy slows down
-      enemy.tunnelTimer += 1;
+      enemy.slowdownTimer += 1;
+    } else if (enemy.atHome) {
+      // enemy slows down
+      enemy.slowdownTimer += 1;
     }
   } // for
 }
@@ -2180,7 +2282,7 @@ function gameLoop() {
     } else if (gameGlobals.levelIndex >= 5) {
       whichTimerStage = [...ENEMY_MODE_TIMERSTAGES_LVL5];
     }
-    console.log("enemyMode: ", gameGlobals.enemyMode);
+    // console.log("enemyMode: ", gameGlobals.enemyMode);
     // scatter -> chase
     if (
       gameGlobals.enemyMode == ENEMY_MODE_SCATTER &&
@@ -2241,7 +2343,7 @@ function gameLoop() {
       player.lives += 1;
     }
 
-    // handle pellet count - converted to simpler count to save possibly expensive process
+    // handle pellet count
     //     ref: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat
     //     ref: https://linuxhint.com/count-certain-elements-in-array-in-javascript/
     gameGlobals.levelPelletCount = screenBitmap
@@ -2333,10 +2435,6 @@ function gameLoop() {
         }
         gameGlobals.enemyMode = gameGlobals.previousMode;
         // clear enemyScoreIndex
-        console.log(
-          "clearing player.enemyScoreIndex from: ",
-          player.enemyScoreIndex
-        );
         player.enemyScoreIndex = 0;
       }
     }
