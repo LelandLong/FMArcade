@@ -81,8 +81,8 @@ const SCORING_KEY = 5000;
 const EXTRA_LIFE_SCORE = 10000;
 const ENEMY_EATEN_SCORES = [200, 400, 800, 1600];
 
-const PREPARING_FULLTIMER = 30;
-const PREPARING_HALFTIMER = 15;
+const PREPARING_FULLTIMER = 50;
+const PREPARING_HALFTIMER = 25;
 const LEVELCOMPLETED_TIMER = 39;
 const LEVELPREPARING_TIMER = 15;
 const FRUIT_TIMER = Math.trunc(10000 / gameGlobals.timerDuration); // 10 secs
@@ -674,6 +674,17 @@ var enemies = [
   },
 ];
 
+// Sound Effects
+const audioIntro = new Audio("data:audio/mp4;base64," + "**AUDIO_INTRO**");
+const audioPellet = new Audio("data:audio/mp4;base64," + "**AUDIO_PELLET**");
+const audioFruit = new Audio("data:audio/mp4;base64," + "**AUDIO_FRUIT**");
+const audioEnergizer = new Audio(
+  "data:audio/mp4;base64," + "**AUDIO_ENERGIZER**"
+);
+const audioPlayerDied = new Audio(
+  "data:audio/mp4;base64," + "**AUDIO_PLAYERDIED**"
+);
+
 // - - - GAME INIT - - -
 
 var gameTimer;
@@ -686,7 +697,7 @@ $(document).ready(function () {
   const refreshDelay = setTimeout(() => {
     prepareLevel();
     screenBitmapInitialRefresh();
-  }, 50);
+  }, 1000);
 
   const startDelay = setTimeout(() => {
     prepareForPlay();
@@ -952,7 +963,7 @@ function screenBitmapUpdate() {
 
     if (!enemy.preparing) {
       // add current enemy sprite position to bitmap
-      if (enemy.frightened) {
+      if (enemy.frightened && !enemy.killed) {
         if (gameGlobals.frightenedTimer < ENEMY_FRIGHTENED_HALFTIMER) {
           // if timer is half fininshed, begin frightened icon "flashing"
           if (gameGlobals.frightenedTimer % 3 == 0) {
@@ -1300,6 +1311,7 @@ function endPlay() {
 // - - -
 
 function prepareLevel() {
+  audioIntro.play();
   gameGlobals.levelIndex += 1;
   gameGlobals.firstFruitFlag = false;
   gameGlobals.secondFruitFlag = false;
@@ -1399,7 +1411,15 @@ function playerUpdate() {
     player.frameNo += 1;
     if (player.frameNo > 26) {
       player.dying = false;
-      prepareForPlay();
+      if (player.lives < 1) {
+        // game over
+        endPlay();
+        updateFMP();
+        clearTimeout(gameTimer);
+        FileMaker.PerformScriptWithOption("Game_Quit 2", "", 0);
+      } else {
+        prepareForPlay();
+      }
     }
     //
   } else if (player.moving) {
@@ -1499,6 +1519,7 @@ function playerUpdate() {
     ) {
       // energizers
       player.score += SCORING_ENERGIZER;
+      audioEnergizer.play();
       for (let index = 0; index < enemies.length; index++) {
         // enbemies become frightened during timer
         enemies[index].frightened = true;
@@ -1520,6 +1541,7 @@ function playerUpdate() {
       player.score += SCORING_CHERRY;
       player.fruitScore = SCORING_CHERRY;
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
+      audioFruit.play();
     } else if (
       screenBitmap[player.positionY][player.positionX] == STRAWBERRY_FRAME
     ) {
@@ -1527,6 +1549,7 @@ function playerUpdate() {
       player.score += SCORING_STRAWBERRY;
       player.fruitScore = SCORING_STRAWBERRY;
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
+      audioFruit.play();
     } else if (
       screenBitmap[player.positionY][player.positionX] == PEACH_FRAME
     ) {
@@ -1534,6 +1557,7 @@ function playerUpdate() {
       player.score += SCORING_PEACH;
       player.fruitScore = SCORING_PEACH;
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
+      audioFruit.play();
     } else if (
       screenBitmap[player.positionY][player.positionX] == APPLE_FRAME
     ) {
@@ -1541,6 +1565,7 @@ function playerUpdate() {
       player.score += SCORING_APPLE;
       player.fruitScore = SCORING_APPLE;
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
+      audioFruit.play();
     } else if (
       screenBitmap[player.positionY][player.positionX] == GRAPES_FRAME
     ) {
@@ -1548,6 +1573,7 @@ function playerUpdate() {
       player.score += SCORING_GRAPES;
       player.fruitScore = SCORING_GRAPES;
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
+      audioFruit.play();
     } else if (
       screenBitmap[player.positionY][player.positionX] == GALAXIAN_FRAME
     ) {
@@ -1555,16 +1581,19 @@ function playerUpdate() {
       player.score += SCORING_GALAXIAN;
       player.fruitScore = SCORING_GALAXIAN;
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
+      audioFruit.play();
     } else if (screenBitmap[player.positionY][player.positionX] == BELL_FRAME) {
       // fruit - bell
       player.score += SCORING_BELL;
       player.fruitScore = SCORING_BELL;
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
+      audioFruit.play();
     } else if (screenBitmap[player.positionY][player.positionX] == KEY_FRAME) {
       // fruit - key
       player.score += SCORING_KEY;
       player.fruitScore = SCORING_KEY;
       gameGlobals.fruitScoreTimer = FRUIT_SCORE_TIMER;
+      audioFruit.play();
     } else {
       // enemies
       for (let index = 0; index < enemies.length; index++) {
@@ -1574,18 +1603,23 @@ function playerUpdate() {
           player.positionY == enemy.positionY
         ) {
           if (enemy.frightened && !enemy.killed) {
+            audioEnergizer.play();
             player.score += ENEMY_EATEN_SCORES[player.enemyScoreIndex];
-            enemies[index].killed = true;
-            enemies[index].frightened = false;
+            enemy.killed = true;
             gameGlobals.enemyScoreTimer = ENEMY_SCORE_TIMER;
-          } else {
-            // player.dying = true;
-            // player.lives -= 1;
-            // player.frameNo = 0;
-            // player.moving = false;
-            // for (let index = 0; index < enemies.length; index++) {
-            //   enemies[index].moving = false;
-            // }
+          } else if (!enemy.frightened && !enemy.killed) {
+            audioPlayerDied.play();
+            player.dying = true;
+            player.lives -= 1;
+            player.frameNo = 0;
+            player.moving = false;
+            for (
+              let innerIndex = 0;
+              innerIndex < enemies.length;
+              innerIndex++
+            ) {
+              enemies[innerIndex].moving = false;
+            }
           }
         }
       } // for
@@ -2206,17 +2240,17 @@ function enemiesUpdate() {
       ) {
         if (enemy.frightened && !enemy.killed) {
           player.score += ENEMY_EATEN_SCORES[player.enemyScoreIndex];
-          enemies[index].killed = true;
-          enemies[index].frightened = false;
+          enemy.killed = true;
           gameGlobals.enemyScoreTimer = ENEMY_SCORE_TIMER;
-        } else {
-          // player.dying = true;
-          // player.lives -= 1;
-          // player.frameNo = 0;
-          // player.moving = false;
-          // for (let index = 0; index < enemies.length; index++) {
-          //   enemies[index].moving = false;
-          // }
+        } else if (!enemy.frightened && !enemy.killed) {
+          audioPlayerDied.play();
+          player.dying = true;
+          player.lives -= 1;
+          player.frameNo = 0;
+          player.moving = false;
+          for (let innerIndex = 0; innerIndex < enemies.length; innerIndex++) {
+            enemies[innerIndex].moving = false;
+          }
         }
       }
     } // if moving
