@@ -10,13 +10,13 @@ Free.
 Completely unlocked.
 Ready for you to explore.
 
-![Overview image](images/ScreenshotMenu.png)
+![Overview image](images/ScreenShotMenu.png)
 
-![Overview2 image](images/ScreenshotSI.png)
+![Overview2 image](images/ScreenShotSI.png)
 
-![Overview3 image](images/ScreenshotKeys.png)
+![Overview3 image](images/ScreenShotKeys.png)
 
-![Overview4 image](images/ScreenshotPM.png)
+![Overview4 image](images/ScreenShotPM.png)
 
 #### Usage
 
